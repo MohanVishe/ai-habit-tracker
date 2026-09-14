@@ -1,0 +1,15 @@
+# UI
+streamlit==1.35.0
+pandas==2.2.2
+
+# LLM orchestration
+langchain-core==0.2.9
+langchain-groq==0.1.5          # default provider - open-weight Llama 3
+langchain-ollama==0.1.0        # fully local
+langchain-openai==0.1.8        # comparison
+
+# Config
+python-dotenv==1.0.1
+
+# Tests
+pytest==8.2.2
