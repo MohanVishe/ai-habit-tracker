@@ -1,0 +1,11 @@
+[project]
+name = "habitloop"
+version = "1.0.0"
+description = "Habit tracker with an AI coach grounded in your own log"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+# Put the repo root on sys.path so `from habitloop import ...` resolves when
+# pytest is run from anywhere, including a bare CI checkout.
+pythonpath = ["."]
+testpaths = ["tests"]
