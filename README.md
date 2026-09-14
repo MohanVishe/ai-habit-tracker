@@ -6,7 +6,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat-square&logo=langchain&logoColor=white)](https://langchain.com)
 [![Llama 3](https://img.shields.io/badge/Llama_3-0467DF?style=flat-square&logo=meta&logoColor=white)](https://llama.meta.com)
-[![Tests](https://img.shields.io/badge/tests-15_passing-3fb950?style=flat-square)](tests/test_analytics.py)
+[![tests](https://github.com/MohanVishe/ai-habit-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/MohanVishe/ai-habit-tracker/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 Log habits → get a weekly review, a 7-day plan, and a coach you can ask questions — all grounded in your own history, running on open-weight models.
