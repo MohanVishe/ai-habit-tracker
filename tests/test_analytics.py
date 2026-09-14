@@ -6,7 +6,6 @@ in the coach.
 """
 from datetime import date, timedelta
 
-import pytest
 
 from habitloop import analytics
 
