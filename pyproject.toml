@@ -1,8 +1,27 @@
 [project]
 name = "habitloop"
-version = "1.0.0"
-description = "Habit tracker with an AI coach grounded in your own log"
-requires-python = ">=3.10"
+version = "1.1.0"
+description = "HabitLoop — habit tracker with an AI coach grounded in your own log"
+readme = "README.md"
+license = "MIT"
+# pandas 3 needs 3.11+; Python 3.10 reaches end of life in October 2026.
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit==1.64.0",
+    "pandas==3.0.6",
+    "langchain-core==1.6.5",
+    "langchain-groq==1.1.3",     # default provider - open-weight Llama 3.3
+    "langchain-ollama==1.1.0",   # fully local
+    "langchain-openai==1.6.6",   # comparison
+    "python-dotenv==1.2.3",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[tool.uv]
+# An app, not a library: uv installs the dependencies, not the project itself.
+package = false
 
 [tool.pytest.ini_options]
 # Put the repo root on sys.path so `from habitloop import ...` resolves when

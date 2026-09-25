@@ -6,25 +6,56 @@ on:
   pull_request:
 
 jobs:
-  pytest:
+  pip:
+    # What the README tells people to run: pip install -r requirements.txt, then pytest.
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-
-      # The statistics have no LLM or network dependency, so they test on their
-      # own. Installing streamlit and three provider SDKs to run them would be
-      # a minute of CI time for nothing.
-      - name: Install test dependencies
-        run: pip install pytest
-
+      - name: Install requirements.txt
+        run: pip install -r requirements.txt
+      - name: Check installed packages are consistent
+        run: pip check
       - name: Run tests
         run: pytest -q
+
+  uv:
+    # The lock file resolves and installs as committed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: Check requirements.txt matches uv.lock
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --all-groups -o requirements.txt
+          git diff --exit-code requirements.txt
+      - name: Sync from the lock
+        run: uv sync --locked
+      - name: Run tests
+        run: uv run --locked pytest -q
+
+  docker:
+    # Build the image and wait for the container's own HEALTHCHECK to report healthy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: docker build -t habitloop .
+      - name: Run and wait for healthy
+        run: |
+          docker run -d --name habitloop -p 8501:8501 habitloop
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' habitloop)
+            echo "health: $status"
+            [ "$status" = healthy ] && exit 0
+            sleep 5
+          done
+          docker logs habitloop
+          exit 1
