@@ -3,24 +3,53 @@
 Everything here is a pure function over plain dicts — no database, no LLM.
 That is deliberate: these numbers are what the model gets fed, so they are the
 part that has to be right, and pure functions are the part that can be tested.
+
+An entry is a dict with at least `name`, `on_date` (date or ISO string) and
+`done` (truthy/falsy). Optional: `target_per_week` (default 7) and
+`created_on` (the day the habit was added; used to size the denominator).
 """
 from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, timedelta
 
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
 
 def _to_date(value) -> date:
     return value if isinstance(value, date) else date.fromisoformat(value)
 
 
-def completion_by_habit(entries: list[dict], window_days: int) -> dict[str, dict]:
-    """Per-habit completion over the window.
+def tracked_since(entries: list[dict], habit_name: str, window_days: int,
+                  today: date) -> date:
+    """First day of the window that counts for this habit.
 
-    `window_days` is the denominator, not the number of rows — a habit logged
-    twice in thirty days is 2/30, not 2/2. Using row count as the denominator
-    is the easy mistake here and it reports 100% for total neglect.
+    The window start, unless the habit is younger than the window: a habit
+    added three days ago and done all three days is 3/3, not 3/30. Uses the
+    earlier of `created_on` and the first logged day (the UI allows back-dated
+    logging). With no `created_on` on the entries, the whole window counts —
+    the conservative choice, since it can only under-report.
     """
+    window_start = today - timedelta(days=window_days - 1)
+    rows = [e for e in entries if e["name"] == habit_name]
+    created = [_to_date(e["created_on"]) for e in rows if e.get("created_on")]
+    if not created:
+        return window_start
+    first_logged = min(_to_date(e["on_date"]) for e in rows)
+    return min(max(window_start, min(min(created), first_logged)), today)
+
+
+def completion_by_habit(entries: list[dict], window_days: int,
+                        today: date | None = None) -> dict[str, dict]:
+    """Per-habit completion over the days the habit existed inside the window.
+
+    The denominator is days, not rows — a habit logged twice in thirty days is
+    2/30, not 2/2. Using row count as the denominator is the easy mistake here
+    and it reports 100% for total neglect. The days counted run from
+    `tracked_since` to today, so a new habit is not penalised for the part of
+    the window before it existed.
+    """
+    today = today or date.today()
     done = defaultdict(int)
     missed = defaultdict(int)
     targets: dict[str, int] = {}
@@ -33,15 +62,17 @@ def completion_by_habit(entries: list[dict], window_days: int) -> dict[str, dict
         else:
             missed[name] += 1
 
-    weeks = max(window_days / 7, 1)
     summary = {}
-
     for name, target in targets.items():
+        start = tracked_since(entries, name, window_days, today)
+        days = (today - start).days + 1
+        expected = max(round(target * days / 7), 1)
         completed = done[name]
-        expected = max(round(target * weeks), 1)
         summary[name] = {
             "completed": completed,
             "explicitly_missed": missed[name],
+            "days_tracked": days,
+            "tracked_since": start.isoformat(),
             "expected": expected,
             "rate": round(min(completed / expected, 1.0), 3),
             "target_per_week": target,
@@ -54,23 +85,26 @@ def current_streak(entries: list[dict], habit_name: str, today: date | None = No
     """Consecutive days completed, counting back from today.
 
     A day with no entry breaks the streak — absence of a log is a miss, not a
-    gap to be skipped over.
+    gap to be skipped over. The one exception is today: if today has no entry
+    yet the day isn't over, so counting starts from yesterday. If today is
+    logged as *missed*, the streak is 0.
     """
     today = today or date.today()
-    completed = {
-        _to_date(e["on_date"])
+    log = {
+        _to_date(e["on_date"]): bool(e["done"])
         for e in entries
-        if e["name"] == habit_name and e["done"]
+        if e["name"] == habit_name
     }
 
-    if not completed:
-        return 0
-
-    # Today not yet logged is not a broken streak — the day isn't over.
-    cursor = today if today in completed else today - timedelta(days=1)
+    if today in log:
+        if not log[today]:
+            return 0
+        cursor = today
+    else:
+        cursor = today - timedelta(days=1)
 
     streak = 0
-    while cursor in completed:
+    while log.get(cursor):
         streak += 1
         cursor -= timedelta(days=1)
 
@@ -78,9 +112,10 @@ def current_streak(entries: list[dict], habit_name: str, today: date | None = No
 
 
 def longest_streak(entries: list[dict], habit_name: str) -> int:
-    completed = sorted(
+    """Longest run of consecutive completed days in the entries given."""
+    completed = sorted({
         _to_date(e["on_date"]) for e in entries if e["name"] == habit_name and e["done"]
-    )
+    })
     if not completed:
         return 0
 
@@ -91,16 +126,50 @@ def longest_streak(entries: list[dict], habit_name: str) -> int:
     return best
 
 
-def by_weekday(entries: list[dict]) -> dict[str, dict[str, int]]:
-    """Completions per weekday — surfaces the 'weekends always collapse' pattern."""
-    names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    table = {n: {"done": 0, "missed": 0} for n in names}
+def _bucket(done: int, missed: int, days: int) -> dict:
+    return {
+        "done": done,
+        "missed": missed,
+        "days": days,
+        "rate": round(done / days, 3) if days else None,
+    }
 
+
+def weekday_pattern(entries: list[dict], habit_name: str, start: date,
+                    today: date) -> dict:
+    """One habit's completions per weekday, from `start` to `today` inclusive.
+
+    `days` is how many of that weekday fell in the period, so `rate` is the
+    share of, say, Saturdays on which the habit was done. `sat_sun` and
+    `mon_to_fri` aggregate the same counts — they answer "worst at weekends?"
+    directly instead of leaving the model to add up rows.
+    """
+    counts = {n: {"done": 0, "missed": 0} for n in WEEKDAYS}
     for entry in entries:
-        weekday = names[_to_date(entry["on_date"]).weekday()]
-        table[weekday]["done" if entry["done"] else "missed"] += 1
+        if entry["name"] != habit_name:
+            continue
+        day = _to_date(entry["on_date"])
+        if start <= day <= today:
+            counts[WEEKDAYS[day.weekday()]]["done" if entry["done"] else "missed"] += 1
 
-    return table
+    days = {n: 0 for n in WEEKDAYS}
+    cursor = start
+    while cursor <= today:
+        days[WEEKDAYS[cursor.weekday()]] += 1
+        cursor += timedelta(days=1)
+
+    def total(names):
+        return _bucket(
+            sum(counts[n]["done"] for n in names),
+            sum(counts[n]["missed"] for n in names),
+            sum(days[n] for n in names),
+        )
+
+    return {
+        "by_day": {n: _bucket(counts[n]["done"], counts[n]["missed"], days[n]) for n in WEEKDAYS},
+        "mon_to_fri": total(WEEKDAYS[:5]),
+        "sat_sun": total(WEEKDAYS[5:]),
+    }
 
 
 def build_summary(entries: list[dict], window_days: int = 30,
@@ -113,19 +182,47 @@ def build_summary(entries: list[dict], window_days: int = 30,
     """
     today = today or date.today()
     habits = sorted({e["name"] for e in entries})
+    completion = completion_by_habit(entries, window_days, today)
+    weekdays = {
+        name: weekday_pattern(
+            entries, name, date.fromisoformat(completion[name]["tracked_since"]), today
+        )
+        for name in habits
+    }
 
     return {
         "window_days": window_days,
         "generated_on": today.isoformat(),
         "total_entries": len(entries),
         "habits_tracked": len(habits),
-        "completion": completion_by_habit(entries, window_days),
+        "completion": completion,
         "streaks": {
             name: {
                 "current": current_streak(entries, name, today),
-                "longest": longest_streak(entries, name),
+                "longest_in_window": longest_streak(entries, name),
             }
             for name in habits
         },
-        "weekday_pattern": by_weekday(entries),
+        "weekday_pattern": weekdays,
+        "rankings": rankings(completion, weekdays),
+    }
+
+
+def rankings(completion: dict, weekdays: dict) -> dict[str, list]:
+    """Habits ordered worst-first by each rate, as [name, rate] pairs.
+
+    "Which habit am I worst at on weekends?" is a comparison across habits.
+    Left to the model, it is one more place to get the order wrong while every
+    individual number is right, so the order is computed here too.
+    """
+    def order(rates: dict[str, float | None]) -> list:
+        known = [(n, r) for n, r in rates.items() if r is not None]
+        return [[n, r] for n, r in sorted(known, key=lambda kv: (kv[1], kv[0]))]
+
+    return {
+        "completion_rate_worst_first": order({n: c["rate"] for n, c in completion.items()}),
+        "sat_sun_rate_worst_first": order({n: w["sat_sun"]["rate"] for n, w in weekdays.items()}),
+        "mon_to_fri_rate_worst_first": order(
+            {n: w["mon_to_fri"]["rate"] for n, w in weekdays.items()}
+        ),
     }

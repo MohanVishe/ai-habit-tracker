@@ -5,12 +5,18 @@ anything heavier is infrastructure for its own sake.
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, timedelta
 from pathlib import Path
 
 DEFAULT_DB = Path("data/habits.db")
+
+
+def _resolve(db_path: Path | str | None) -> Path:
+    """An explicit path wins, then $HABITLOOP_DB, then data/habits.db."""
+    return Path(db_path or os.getenv("HABITLOOP_DB") or DEFAULT_DB)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS habits (
@@ -36,8 +42,8 @@ CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(on_date);
 
 
 @contextmanager
-def connect(db_path: Path | str = DEFAULT_DB):
-    path = Path(db_path)
+def connect(db_path: Path | str | None = None):
+    path = _resolve(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     connection = sqlite3.connect(path)
@@ -50,7 +56,7 @@ def connect(db_path: Path | str = DEFAULT_DB):
         connection.close()
 
 
-def init(db_path: Path | str = DEFAULT_DB) -> None:
+def init(db_path: Path | str | None = None) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
 
@@ -59,12 +65,13 @@ def init(db_path: Path | str = DEFAULT_DB) -> None:
 
 
 def add_habit(name: str, category: str = "general", target_per_week: int = 7,
-              db_path: Path | str = DEFAULT_DB) -> int:
+              created_on: date | None = None, db_path: Path | str | None = None) -> int:
     with connect(db_path) as conn:
         cursor = conn.execute(
             "INSERT OR IGNORE INTO habits (name, category, target_per_week, created_on) "
             "VALUES (?, ?, ?, ?)",
-            (name.strip(), category, target_per_week, date.today().isoformat()),
+            (name.strip(), category, target_per_week,
+             (created_on or date.today()).isoformat()),
         )
         if cursor.lastrowid:
             return cursor.lastrowid
@@ -72,7 +79,7 @@ def add_habit(name: str, category: str = "general", target_per_week: int = 7,
         return row["id"]
 
 
-def list_habits(include_archived: bool = False, db_path: Path | str = DEFAULT_DB) -> list[dict]:
+def list_habits(include_archived: bool = False, db_path: Path | str | None = None) -> list[dict]:
     query = "SELECT * FROM habits"
     if not include_archived:
         query += " WHERE archived = 0"
@@ -81,16 +88,22 @@ def list_habits(include_archived: bool = False, db_path: Path | str = DEFAULT_DB
         return [dict(r) for r in conn.execute(query).fetchall()]
 
 
-def archive_habit(habit_id: int, db_path: Path | str = DEFAULT_DB) -> None:
+def archive_habit(habit_id: int, db_path: Path | str | None = None) -> None:
     with connect(db_path) as conn:
         conn.execute("UPDATE habits SET archived = 1 WHERE id = ?", (habit_id,))
+
+
+def delete_habit(name: str, db_path: Path | str | None = None) -> None:
+    """Remove a habit and (by cascade) all its entries."""
+    with connect(db_path) as conn:
+        conn.execute("DELETE FROM habits WHERE name = ?", (name.strip(),))
 
 
 # --- entries --------------------------------------------------------------
 
 
 def log(habit_id: int, on_date: date | str, done: bool = True, note: str | None = None,
-        db_path: Path | str = DEFAULT_DB) -> None:
+        db_path: Path | str | None = None) -> None:
     """Record a day. Re-logging the same day overwrites rather than duplicates."""
     iso = on_date.isoformat() if isinstance(on_date, date) else on_date
     with connect(db_path) as conn:
@@ -101,19 +114,25 @@ def log(habit_id: int, on_date: date | str, done: bool = True, note: str | None 
         )
 
 
-def entries_between(start: date, end: date, db_path: Path | str = DEFAULT_DB) -> list[dict]:
+def entries_between(start: date, end: date, include_archived: bool = False,
+                    db_path: Path | str | None = None) -> list[dict]:
+    """Entries in [start, end]. Archived habits are left out unless asked for —
+    archiving a habit takes it out of Progress and out of the model's summary."""
+    query = (
+        "SELECT e.on_date, e.done, e.note, h.id AS habit_id, h.name, h.category, "
+        "       h.target_per_week, h.created_on "
+        "FROM entries e JOIN habits h ON h.id = e.habit_id "
+        "WHERE e.on_date BETWEEN ? AND ? "
+    )
+    if not include_archived:
+        query += "AND h.archived = 0 "
+    query += "ORDER BY e.on_date"
     with connect(db_path) as conn:
-        rows = conn.execute(
-            "SELECT e.on_date, e.done, e.note, h.id AS habit_id, h.name, h.category, "
-            "       h.target_per_week "
-            "FROM entries e JOIN habits h ON h.id = e.habit_id "
-            "WHERE e.on_date BETWEEN ? AND ? "
-            "ORDER BY e.on_date",
-            (start.isoformat(), end.isoformat()),
-        ).fetchall()
+        rows = conn.execute(query, (start.isoformat(), end.isoformat())).fetchall()
     return [dict(r) for r in rows]
 
 
-def recent(days: int = 30, db_path: Path | str = DEFAULT_DB) -> list[dict]:
-    today = date.today()
-    return entries_between(today - timedelta(days=days - 1), today, db_path)
+def recent(days: int = 30, today: date | None = None,
+           db_path: Path | str | None = None) -> list[dict]:
+    today = today or date.today()
+    return entries_between(today - timedelta(days=days - 1), today, db_path=db_path)
