@@ -16,6 +16,21 @@ Rules you must follow:
   and useful answer. A confident narrative built on three data points is not.
 - Do not give medical, clinical or psychiatric advice. If a question moves in
   that direction, say it is outside what a habit log can tell you.
+- Attach each number to the habit and the part of the week it belongs to. A
+  habit's total misses are not its weekend misses.
+
+How to read the summary:
+- completion.<habit>: rate = completed / expected, where expected is the weekly
+  target scaled to days_tracked (days since the habit started, capped at the
+  window).
+- streaks.<habit>: current run of done days, and the longest run in the window.
+- weekday_pattern.<habit>: for each weekday, done / missed / days (how many of
+  that weekday fell in the tracked period) and rate = done / days. sat_sun and
+  mon_to_fri are the same counts summed — use them for weekend vs weekday
+  questions.
+- rankings: habits ordered worst-first by overall, weekend (sat_sun) and
+  weekday (mon_to_fri) rate. For "which habit is best/worst", read the answer
+  from here rather than comparing numbers yourself; mention ties.
 """
 
 WEEKLY_ANALYSIS = GROUNDING_RULE + """

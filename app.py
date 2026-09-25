@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-from habitloop import analytics, db
+from habitloop import analytics, db, validate
 from habitloop.llm import describe_provider
 
 load_dotenv()
@@ -19,6 +19,7 @@ db.init()
 st.set_page_config(page_title="HabitLoop", page_icon="🎯", layout="wide")
 
 WINDOW = 30
+MODEL_ERROR = "Couldn't reach the model"
 
 
 @st.cache_data(ttl=30)
@@ -29,6 +30,18 @@ def load_summary(window: int = WINDOW) -> tuple[dict, list[dict]]:
 
 def invalidate():
     load_summary.clear()
+
+
+def show_check(text: str, summary: dict) -> None:
+    """Flag numbers in a model answer that the summary does not support."""
+    report = validate.check(text, summary)
+    if report.ok:
+        st.caption(f"Checked {report.checked} number(s) against the summary: all supported.")
+    else:
+        st.warning(
+            "Not supported by the summary — treat these as unverified:\n\n"
+            + "\n".join(f"- {issue}" for issue in report.issues)
+        )
 
 
 # --- sidebar --------------------------------------------------------------
@@ -51,7 +64,7 @@ with st.sidebar:
     if habits:
         st.subheader("Archive")
         to_archive = st.selectbox("Habit", [h["name"] for h in habits], key="arch")
-        if st.button("Archive", use_container_width=True):
+        if st.button("Archive", width="stretch"):
             db.archive_habit(next(h["id"] for h in habits if h["name"] == to_archive))
             invalidate()
             st.rerun()
@@ -76,7 +89,7 @@ with log_tab:
 
     logged = {
         (e["name"], e["on_date"]): e["done"]
-        for e in entries
+        for e in db.entries_between(on_date, on_date)
     }
 
     for habit in habits:
@@ -89,11 +102,11 @@ with log_tab:
 
         with right:
             done_col, miss_col = st.columns(2)
-            if done_col.button("Done", key=f"d{habit['id']}", use_container_width=True):
+            if done_col.button("Done", key=f"d{habit['id']}", width="stretch"):
                 db.log(habit["id"], on_date, True)
                 invalidate()
                 st.rerun()
-            if miss_col.button("Miss", key=f"m{habit['id']}", use_container_width=True):
+            if miss_col.button("Miss", key=f"m{habit['id']}", width="stretch"):
                 db.log(habit["id"], on_date, False)
                 invalidate()
                 st.rerun()
@@ -118,12 +131,15 @@ with progress_tab:
         daily = frame[frame["done"] == 1].groupby("on_date").size()
         st.bar_chart(daily)
 
-        st.markdown("**By weekday**")
-        weekday = pd.DataFrame(summary["weekday_pattern"]).T
-        st.bar_chart(weekday)
+        st.markdown("**Share of each weekday done, per habit**")
+        weekday = pd.DataFrame({
+            name: {day: stats["rate"] for day, stats in pattern["by_day"].items()}
+            for name, pattern in summary["weekday_pattern"].items()
+        })
+        st.bar_chart(weekday, stack=False)
 
-        with st.expander("Streaks"):
-            st.dataframe(pd.DataFrame(summary["streaks"]).T, use_container_width=True)
+        with st.expander("Streaks (longest is within the window)"):
+            st.dataframe(pd.DataFrame(summary["streaks"]).T, width="stretch")
 
 with review_tab:
     st.subheader("Weekly review")
@@ -134,7 +150,7 @@ with review_tab:
 
     left, right = st.columns(2)
 
-    if left.button("Generate review", use_container_width=True):
+    if left.button("Generate review", width="stretch"):
         from habitloop.insights import weekly_analysis
         with st.spinner("Reading your log…"):
             try:
@@ -142,7 +158,7 @@ with review_tab:
             except Exception as exc:
                 st.error(f"{type(exc).__name__}: {exc}")
 
-    if right.button("Generate 7-day plan", use_container_width=True):
+    if right.button("Generate 7-day plan", width="stretch"):
         from habitloop.insights import action_plan
         with st.spinner("Planning…"):
             try:
@@ -153,6 +169,7 @@ with review_tab:
     if st.session_state.get("review"):
         st.markdown("### Review")
         st.markdown(st.session_state["review"])
+        show_check(st.session_state["review"], summary)
 
     if st.session_state.get("plan"):
         st.markdown("### Next 7 days")
@@ -163,13 +180,18 @@ with review_tab:
 
 with coach_tab:
     st.subheader("Coach")
-    st.caption("Answers come from your logged history. Questions it can't answer from the log, it declines.")
+    st.caption(
+        "The model is given only the computed summary and told to decline what it "
+        "doesn't cover. Numbers in each answer are checked against that summary."
+    )
 
     st.session_state.setdefault("chat", [])
 
     for role, text in st.session_state["chat"]:
         with st.chat_message(role):
             st.markdown(text)
+            if role == "assistant" and not text.startswith(MODEL_ERROR):
+                show_check(text, summary)
 
     if question := st.chat_input("Which habit am I worst at on weekends?"):
         st.session_state["chat"].append(("user", question))
@@ -180,8 +202,10 @@ with coach_tab:
             from habitloop.coach import answer
             try:
                 reply = answer(question, summary, st.session_state["chat"][:-1])
+                st.markdown(reply)
+                show_check(reply, summary)
             except Exception as exc:
-                reply = f"Couldn't reach the model — {type(exc).__name__}: {exc}"
-            st.markdown(reply)
+                reply = f"{MODEL_ERROR} — {type(exc).__name__}: {exc}"
+                st.markdown(reply)
 
         st.session_state["chat"].append(("assistant", reply))

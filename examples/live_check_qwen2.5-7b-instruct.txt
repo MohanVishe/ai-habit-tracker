@@ -1,0 +1,47 @@
+Model: ollama · qwen2.5:7b-instruct · sample log: seed.py --as-of 2026-09-15
+
+Q: Which habit am I worst at on weekends?
+Based on the summary, the habit you are worst at on weekends is "Deep work block" with a rate of 0.0 on both Saturday and Sunday.
+
+[validator] checked 2, flagged 0
+
+------------------------------------------------------------------------
+
+Q: How is my meditation going?
+The habit log doesn't include any entries for meditation, so there's no data to assess how your meditation is going.
+
+[validator] checked 0, flagged 0
+
+------------------------------------------------------------------------
+
+Q: What is my completion rate for Morning walk?
+Your completion rate for Morning walk is 0.967, which means you completed the habit on 29 out of 30 tracked days.
+
+[validator] checked 3, flagged 0
+
+------------------------------------------------------------------------
+
+Q: How did I feel on the days I skipped my walk?
+The habit log does not include information about how you felt on the days you skipped your walk. It only tracks whether the habit was completed or missed.
+
+[validator] checked 0, flagged 0
+
+------------------------------------------------------------------------
+
+Weekly review:
+### What's Working
+The "Morning walk" habit is performing exceptionally well, with a completion rate of 0.967. This habit has maintained a streak of 28 consecutive days, showing a strong commitment and consistency.
+
+### What's Slipping
+The "No screens after 10pm" habit is the weakest, with a completion rate of only 0.367. Despite a current streak of 2 days, there have been 19 explicitly missed days, indicating a significant challenge in maintaining this habit.
+
+### The Pattern Worth Noticing
+On weekends, the "No screens after 10pm" habit has a completion rate of 0.125, meaning it is only being completed once every eight days. This stark contrast to the weekday rate of 0.455 highlights a clear pattern of difficulty in adhering to this habit during the weekend.
+
+### One Thing to Change
+To improve the "No screens after 10pm" habit, consider setting specific reminders or alarms on Saturdays and Sundays to help enforce the rule. This could help maintain the habit's consistency throughout the week, including the weekend.
+
+[validator] checked 8, flagged 0
+
+------------------------------------------------------------------------
+
