@@ -48,6 +48,86 @@ def test_answers_differ_between_the_seeded_logs(summaries):
     assert changed >= len(questions) // 2
 
 
+# --- the held-out set -----------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def heldout_summaries():
+    return {d: scoring.summary_for(d) for d in scoring.HELDOUT_AS_OF_DATES}
+
+
+def _stats(summary):
+    return {k: v for k, v in summary.items() if k != "generated_on"} | {
+        "completion": {h: {k: v for k, v in c.items() if k != "tracked_since"}
+                       for h, c in summary["completion"].items()}}
+
+
+def test_heldout_set_is_well_formed_and_separate(heldout_summaries):
+    questions = scoring.load_questions(scoring.HELDOUT)
+    dev = scoring.load_questions()
+    assert 30 <= len(questions) <= 45
+    assert len({x["id"] for x in questions}) == len(questions)
+    assert not {x["id"] for x in questions} & {x["id"] for x in dev}
+    assert not {x["question"] for x in questions} & {x["question"] for x in dev}
+    assert {x["answer_type"] for x in questions} <= set(scoring.SPEC)
+    comparisons = [x for x in questions if x["category"] in
+                   ("best_worst", "compare_two", "which_day", "ranking")]
+    assert len(comparisons) >= len(questions) / 2
+    assert not set(scoring.HELDOUT_AS_OF_DATES) & set(scoring.AS_OF_DATES)
+    for summary in heldout_summaries.values():
+        for question in questions:
+            truth = scoring.ground_truth(question, summary)
+            assert (truth is None) == (question["kind"] == "unknown"), question["id"]
+            if isinstance(truth, list):
+                assert truth, question["id"]
+
+
+def test_heldout_logs_are_new_logs(summaries, heldout_summaries):
+    # seed.py repeats a log for an end date on the same weekday; these must not.
+    dev = [_stats(s) for s in summaries.values()]
+    held = [_stats(s) for s in heldout_summaries.values()]
+    assert all(h not in dev for h in held)
+    assert len({json.dumps(h, sort_keys=True) for h in held}) == 3
+
+
+def test_same_weekday_gives_the_same_log():
+    # why the held-out dates are on other weekdays: 2026-08-02 and 2026-08-09 are both Sundays
+    assert _stats(scoring.summary_for("2026-08-02")) == _stats(scoring.summary_for("2026-08-09"))
+
+
+def test_heldout_ground_truth_kinds(heldout_summaries):
+    s = heldout_summaries["2026-09-19"]
+    # completion: Morning walk 0.933, Read 20 pages 0.619, Deep work 0.571, No screens 0.333
+    assert scoring.ground_truth(q("second_best_habit", "habit", scope="overall"), s) == [RP]
+    assert scoring.ground_truth(q("second_worst_habit", "habit", scope="overall"), s) == [DW]
+    assert scoring.ground_truth(q("rank_habits", "ranking", scope="overall"), s)         == [[MW], [RP], [DW], [NS]]
+    # weekends: Deep work block and Read 20 pages tie at 0.0
+    assert scoring.ground_truth(q("rank_habits", "ranking", scope="sat_sun"), s)         == [[MW], [NS], [DW, RP]]
+    assert scoring.ground_truth(q("worst_habit", "habit", scope="sat_sun"), s) == [DW, RP]
+    assert scoring.ground_truth(q("worst_habit", "habit", scope="Monday"), s) == [NS]
+    assert scoring.ground_truth(
+        q("lower_of_two", "habit", scope="sat_sun", habits=[RP, NS]), s) == [RP]
+    assert scoring.ground_truth(
+        q("higher_of_two", "habit", scope="current_streak", habits=[MW, DW]), s) == [MW]
+    # Mon-Fri minus Sat+Sun: Read 20 pages 0.619, the largest drop
+    assert scoring.ground_truth(q("biggest_weekend_drop", "habit"), s) == [RP]
+    pattern = s["weekday_pattern"]
+    drops = {h: p["mon_to_fri"]["rate"] - p["sat_sun"]["rate"] for h, p in pattern.items()}
+    assert max(drops, key=drops.get) == RP
+
+
+@pytest.mark.parametrize("value, ok", [
+    (f"{MW} > {NS} > {DW} > {RP}", True),
+    (f"{MW} > {NS} > {RP} > {DW}", True),       # the tied pair in either order
+    (f"{MW} > {RP} > {NS} > {DW}", False),      # a tied habit placed above a better one
+    (f"{MW} > {NS} > {DW}", False),             # one habit left out
+    (f"{MW} > {NS} > {DW} > {RP} > {MW}", False),  # named twice
+])
+def test_ranking_rule(value, ok):
+    truth = [[MW], [NS], [DW, RP]]
+    assert scoring.compare("ranking", value, truth, HABITS) == (ok, ok)
+
+
 # --- ground truth comes from the analytics functions ----------------------
 
 
@@ -230,7 +310,7 @@ def test_cluster_bootstrap():
 def test_committed_summary_is_reproduced_by_rescoring(jsonl):
     raw = [json.loads(line) for line in jsonl.read_text(encoding="utf-8").splitlines()]
     committed = json.loads(jsonl.with_suffix(".summary.json").read_text(encoding="utf-8"))
-    records = run.score_all(raw)
+    records = run.score_all(raw, run.ROOT / committed["run"]["questions_file"])
     assert [(r["id"], r["as_of"], r["outcome"], r["truth"]) for r in records] \
         == [(r["id"], r["as_of"], r["outcome"], r["truth"]) for r in raw]
     committed.pop("run")

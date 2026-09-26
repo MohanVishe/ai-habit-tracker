@@ -1,0 +1,43 @@
+{"id": "h01", "category": "streaks", "kind": "current_streak", "answer_type": "number", "question": "How many days in a row have I done No screens after 10pm up to today?", "habit": "No screens after 10pm"}
+{"id": "h02", "category": "streaks", "kind": "longest_streak", "answer_type": "number", "question": "What was my best run of consecutive days for Read 20 pages in the last 30 days?", "habit": "Read 20 pages"}
+{"id": "h03", "category": "streaks", "kind": "top_current_streak", "answer_type": "habit", "question": "Which habit am I on the longest run of consecutive done days with right now?"}
+{"id": "h04", "category": "streaks", "kind": "top_longest_streak", "answer_type": "habit", "question": "Which habit reached the longest run of consecutive days in the last 30 days?"}
+{"id": "h05", "category": "streaks", "kind": "higher_of_two", "answer_type": "habit", "question": "Which has the longer current streak: Morning walk or Deep work block?", "scope": "current_streak", "habits": ["Morning walk", "Deep work block"]}
+{"id": "h06", "category": "per_habit", "kind": "completion_rate", "answer_type": "rate", "question": "What share of the expected days did I complete Morning walk?", "habit": "Morning walk"}
+{"id": "h07", "category": "per_habit", "kind": "completed", "answer_type": "number", "question": "On how many days did I get Deep work block done in the last 30 days?", "habit": "Deep work block"}
+{"id": "h08", "category": "per_habit", "kind": "missed", "answer_type": "number", "question": "How many times is No screens after 10pm logged as missed?", "habit": "No screens after 10pm"}
+{"id": "h09", "category": "weekday_weekend", "kind": "weekend_rate", "answer_type": "rate", "question": "How often do I do No screens after 10pm on Saturdays and Sundays, as a rate?", "habit": "No screens after 10pm"}
+{"id": "h10", "category": "weekday_weekend", "kind": "weekday_rate", "answer_type": "rate", "question": "What is my Monday-to-Friday completion rate for Deep work block?", "habit": "Deep work block"}
+{"id": "h11", "category": "weekday_weekend", "kind": "weekday_rate", "answer_type": "rate", "question": "What is my Monday-to-Friday completion rate for Morning walk?", "habit": "Morning walk"}
+{"id": "h12", "category": "weekday_weekend", "kind": "more_reliable", "answer_type": "choice", "question": "Is Deep work block stronger on weekdays or on weekends?", "habit": "Deep work block"}
+{"id": "h13", "category": "weekday_weekend", "kind": "more_reliable", "answer_type": "choice", "question": "Is Read 20 pages stronger on weekdays or on weekends?", "habit": "Read 20 pages"}
+{"id": "h14", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit do I complete least consistently overall?", "scope": "overall"}
+{"id": "h15", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "What is my most consistent habit overall?", "scope": "overall"}
+{"id": "h16", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit do I neglect most at weekends?", "scope": "sat_sun"}
+{"id": "h17", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "Which habit holds up best on Saturdays and Sundays?", "scope": "sat_sun"}
+{"id": "h18", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit is weakest from Monday to Friday?", "scope": "mon_to_fri"}
+{"id": "h19", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "Which habit is strongest from Monday to Friday?", "scope": "mon_to_fri"}
+{"id": "h20", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit do I complete least often on Mondays?", "scope": "Monday"}
+{"id": "h21", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "Which habit do I complete most often on Saturdays?", "scope": "Saturday"}
+{"id": "h22", "category": "best_worst", "kind": "second_best_habit", "answer_type": "habit", "question": "Which is my second-best habit by overall completion rate?", "scope": "overall"}
+{"id": "h23", "category": "best_worst", "kind": "second_worst_habit", "answer_type": "habit", "question": "Which is my second-worst habit on weekdays (Monday to Friday)?", "scope": "mon_to_fri"}
+{"id": "h24", "category": "compare_two", "kind": "higher_of_two", "answer_type": "habit", "question": "Which has the higher completion rate: Read 20 pages or Deep work block?", "scope": "overall", "habits": ["Read 20 pages", "Deep work block"]}
+{"id": "h25", "category": "compare_two", "kind": "lower_of_two", "answer_type": "habit", "question": "Which is lower at weekends: Read 20 pages or No screens after 10pm?", "scope": "sat_sun", "habits": ["Read 20 pages", "No screens after 10pm"]}
+{"id": "h26", "category": "compare_two", "kind": "higher_of_two", "answer_type": "habit", "question": "Which do I do more reliably on weekdays: Deep work block or No screens after 10pm?", "scope": "mon_to_fri", "habits": ["Deep work block", "No screens after 10pm"]}
+{"id": "h27", "category": "compare_two", "kind": "lower_of_two", "answer_type": "habit", "question": "Which has the lower completion rate overall: Morning walk or Read 20 pages?", "scope": "overall", "habits": ["Morning walk", "Read 20 pages"]}
+{"id": "h28", "category": "which_day", "kind": "best_day", "answer_type": "weekday", "question": "On which day of the week am I most consistent with No screens after 10pm?", "habit": "No screens after 10pm"}
+{"id": "h29", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "Which day of the week am I least likely to do Morning walk?", "habit": "Morning walk"}
+{"id": "h30", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "Which day of the week do I most often fail to do Deep work block?", "habit": "Deep work block"}
+{"id": "h31", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "What is my weakest day of the week for Read 20 pages?", "habit": "Read 20 pages"}
+{"id": "h32", "category": "which_day", "kind": "best_day", "answer_type": "weekday", "question": "On which day of the week do I do Read 20 pages most reliably?", "habit": "Read 20 pages"}
+{"id": "h33", "category": "which_day", "kind": "day_rate", "answer_type": "rate", "question": "What is my Tuesday completion rate for Deep work block?", "habit": "Deep work block", "day": "Tuesday"}
+{"id": "h34", "category": "which_day", "kind": "day_rate", "answer_type": "rate", "question": "What is my Wednesday completion rate for No screens after 10pm?", "habit": "No screens after 10pm", "day": "Wednesday"}
+{"id": "h35", "category": "ranking", "kind": "rank_habits", "answer_type": "ranking", "question": "Rank all my habits from best to worst by overall completion rate.", "scope": "overall"}
+{"id": "h36", "category": "ranking", "kind": "rank_habits", "answer_type": "ranking", "question": "Rank all my habits from best to worst by weekend (Saturday and Sunday) completion rate.", "scope": "sat_sun"}
+{"id": "h37", "category": "ranking", "kind": "rank_habits", "answer_type": "ranking", "question": "Rank all my habits from best to worst by weekday (Monday to Friday) completion rate.", "scope": "mon_to_fri"}
+{"id": "h38", "category": "ranking", "kind": "biggest_weekend_drop", "answer_type": "habit", "question": "Which habit drops the most from its weekday rate to its weekend rate?"}
+{"id": "h39", "category": "unanswerable", "kind": "unknown", "answer_type": "number", "question": "What is my current streak for Journaling?"}
+{"id": "h40", "category": "unanswerable", "kind": "unknown", "answer_type": "habit", "question": "Which habit did I do most often in March?"}
+{"id": "h41", "category": "unanswerable", "kind": "unknown", "answer_type": "number", "question": "How many pages did I read on average on the days I did Read 20 pages?"}
+{"id": "h42", "category": "unanswerable", "kind": "unknown", "answer_type": "choice", "question": "Do I skip Deep work block at weekends because I'm tired, and should I rest more on weekdays or at weekends?"}
+{"id": "h43", "category": "unanswerable", "kind": "unknown", "answer_type": "habit", "question": "Which habit will I be best at next month?"}

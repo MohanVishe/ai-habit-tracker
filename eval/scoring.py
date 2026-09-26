@@ -27,6 +27,8 @@ Scoring rule (by the question's answer_type)
     weekday  same rule over day names (Saturday, Saturdays or Sat).
     choice   weekdays / weekends / equal ("same" counts as equal); a value
              naming both weekdays and weekends is wrong.
+    ranking  every habit named once, in an order consistent with the rates
+             (best first); tied habits may come in either order.
 
     Sensitivity (reported, not the headline): for habit and weekday answers,
     score only the first name in the value, so "A | B" when only A is right
@@ -64,6 +66,19 @@ QUESTIONS = Path(__file__).with_name("questions.jsonl")
 # Three end dates for the seeded log: a Sunday, a Tuesday (the README's date)
 # and a Friday. The weekends fall on different draws, so the answers differ.
 AS_OF_DATES = ("2026-08-02", "2026-09-15", "2026-09-25")
+
+# The held-out set: different questions, asked of logs ending on three other
+# weekdays (a Monday, a Wednesday, a Saturday). seed.py draws the same random
+# sequence for every end date and only the weekday decides which draws land on
+# weekends, so an end date on a weekday already used would give the same log
+# again; these three give three new ones (a test checks it).
+HELDOUT = Path(__file__).with_name("questions-heldout.jsonl")
+HELDOUT_AS_OF_DATES = ("2026-08-24", "2026-09-09", "2026-09-19")
+
+SETS = {
+    "dev": (QUESTIONS, AS_OF_DATES),
+    "heldout": (HELDOUT, HELDOUT_AS_OF_DATES),
+}
 WINDOW = 30
 RATE_TOLERANCE = 0.005
 
@@ -83,6 +98,8 @@ SPEC = {
               "tied, list them all separated by \" | \""),
     "weekday": "a day of the week; if several days are tied, list them all separated by \" | \"",
     "choice": "one word: weekdays, weekends or equal",
+    "ranking": ("every habit in the summary, best first, exactly as named in the summary, "
+                "separated by \" > \""),
 }
 
 FORMAT = (
@@ -130,6 +147,27 @@ def _all_best(values: dict[str, float | None], pick) -> list[str]:
     return sorted(k for k, v in known.items() if v == target)
 
 
+def _metric(summary: dict, scope: str) -> dict[str, float | None]:
+    """Per-habit value that a comparison in `scope` is about: overall rate,
+    Sat+Sun or Mon-Fri rate, one weekday's rate, or a streak."""
+    if scope == "overall":
+        return {h: c["rate"] for h, c in summary["completion"].items()}
+    if scope in ("sat_sun", "mon_to_fri"):
+        return {h: p[scope]["rate"] for h, p in summary["weekday_pattern"].items()}
+    if scope in WEEKDAYS:
+        return {h: p["by_day"][scope]["rate"] for h, p in summary["weekday_pattern"].items()}
+    if scope == "current_streak":
+        return {h: s["current"] for h, s in summary["streaks"].items()}
+    raise ValueError(f"unknown scope {scope!r}")
+
+
+def _tiers(values: dict[str, float | None]) -> list[list[str]]:
+    """Habits grouped by value, best (highest) first; a group of two is a tie."""
+    known = {k: v for k, v in values.items() if v is not None}
+    return [sorted(k for k, v in known.items() if v == target)
+            for target in sorted(set(known.values()), reverse=True)]
+
+
 def ground_truth(question: dict, summary: dict):
     """The expected answer, from the computed summary; None = unanswerable.
 
@@ -171,15 +209,29 @@ def ground_truth(question: dict, summary: dict):
         weekday = pattern[habit]["mon_to_fri"]["rate"]
         return "equal" if weekend == weekday else ("weekends" if weekend > weekday else "weekdays")
     if kind in ("worst_habit", "best_habit"):
-        scope = question["scope"]
-        if scope == "overall":
-            rates = {h: c["rate"] for h, c in completion.items()}
-        else:
-            rates = {h: p[scope]["rate"] for h, p in pattern.items()}
+        rates = _metric(summary, question["scope"])
         return _all_best(rates, min if kind == "worst_habit" else max)
     if kind in ("worst_day", "best_day"):
         rates = {d: b["rate"] for d, b in pattern[habit]["by_day"].items()}
         return _all_best(rates, min if kind == "worst_day" else max)
+    # --- kinds used only by the held-out set ---
+    if kind in ("second_best_habit", "second_worst_habit"):
+        # the habit(s) at the second-highest (second-lowest) distinct value
+        tiers = _tiers(_metric(summary, question["scope"]))
+        if kind == "second_worst_habit":
+            tiers = tiers[::-1]
+        return tiers[1] if len(tiers) > 1 else []
+    if kind in ("higher_of_two", "lower_of_two"):
+        values = {h: v for h, v in _metric(summary, question["scope"]).items()
+                  if h in question["habits"]}
+        return _all_best(values, max if kind == "higher_of_two" else min)
+    if kind == "biggest_weekend_drop":
+        drops = {h: round(p["mon_to_fri"]["rate"] - p["sat_sun"]["rate"], 3)
+                 for h, p in pattern.items()
+                 if p["mon_to_fri"]["rate"] is not None and p["sat_sun"]["rate"] is not None}
+        return _all_best(drops, max)
+    if kind == "rank_habits":
+        return _tiers(_metric(summary, question["scope"]))
     raise ValueError(f"unknown question kind {kind!r}")
 
 
@@ -225,9 +277,25 @@ def _days_named(value: str) -> set[str]:
     }
 
 
+def _in_order(value: str, habits: list[str]) -> list[str]:
+    """Habits named in the value, in the order they appear."""
+    found = []
+    for habit in habits:
+        found += [(m.start(), habit) for m in re.finditer(re.escape(habit), value, re.IGNORECASE)]
+    return [habit for _, habit in sorted(found)]
+
+
 def compare(answer_type: str, value: str, truth, habits: list[str]) -> tuple[bool, bool]:
     """(correct, complete) for an answerable question. `complete` differs from
     `correct` only for ties, where naming a subset of the tied items is correct."""
+    if answer_type == "ranking":
+        # truth: tiers best first. Every habit once, and no habit placed above
+        # one from a better tier.
+        named = _in_order(value, habits)
+        tier = {h: i for i, group in enumerate(truth) for h in group}
+        ok = (sorted(named) == sorted(tier)
+              and all(tier[a] <= tier[b] for a, b in zip(named, named[1:])))
+        return ok, ok
     if answer_type in ("number", "rate"):
         # Digits inside a habit name ("Read 20 pages") are not the answer.
         for habit in habits:

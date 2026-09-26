@@ -6,6 +6,11 @@ validator.
     python -m eval.run --model llama3.1         # any model Ollama serves
     python -m eval.run --rescore                # re-score the committed responses, no model
     python -m eval.run --name qwen2.5-7b-instruct.repeat   # a second run, kept separately
+    python -m eval.run --set heldout            # the held-out questions and logs
+
+--set dev (the default) is eval/questions.jsonl over logs ending 2026-08-02,
+09-15 and 09-25; --set heldout is eval/questions-heldout.jsonl over logs ending
+2026-08-24, 09-09 and 09-19 (results named heldout.<model>).
 
 The answers come from habitloop.coach.answer, the app's own chat path, with
 LLM_PROVIDER=ollama; only the sampling seed is added (OLLAMA_SEED). Writes
@@ -67,7 +72,9 @@ def _token_counts(runs) -> dict:
     return {}
 
 
-def ask(model: str, seed: int, host: str, limit: int | None) -> tuple[list[dict], dict]:
+def ask(model: str, seed: int, host: str, limit: int | None,
+        questions_path: Path = scoring.QUESTIONS,
+        dates: tuple[str, ...] = scoring.AS_OF_DATES) -> tuple[list[dict], dict]:
     os.environ.update({"LLM_PROVIDER": "ollama", "OLLAMA_MODEL": model,
                        "OLLAMA_SEED": str(seed), "OLLAMA_HOST": host})
     from langchain_core.tracers.context import collect_runs
@@ -81,9 +88,9 @@ def ask(model: str, seed: int, host: str, limit: int | None) -> tuple[list[dict]
         "seed": seed,
         **_ollama_meta(host, model),
     }
-    questions = scoring.load_questions()[:limit]
+    questions = scoring.load_questions(questions_path)[:limit]
     raw = []
-    for as_of in scoring.AS_OF_DATES:
+    for as_of in dates:
         summary = scoring.summary_for(as_of)
         for q in questions:
             start = time.perf_counter()
@@ -105,8 +112,8 @@ def ask(model: str, seed: int, host: str, limit: int | None) -> tuple[list[dict]
     return raw, meta
 
 
-def score_all(raw: list[dict]) -> list[dict]:
-    questions = {q["id"]: q for q in scoring.load_questions()}
+def score_all(raw: list[dict], questions_path: Path = scoring.QUESTIONS) -> list[dict]:
+    questions = {q["id"]: q for q in scoring.load_questions(questions_path)}
     summaries = {d: scoring.summary_for(d) for d in {r["as_of"] for r in raw}}
     records = []
     for r in raw:
@@ -127,28 +134,34 @@ def main(argv: list[str] | None = None) -> None:
                         help="results file stem (default: the model name)")
     parser.add_argument("--rescore", action="store_true",
                         help="re-score the committed responses without calling a model")
+    parser.add_argument("--set", choices=sorted(scoring.SETS), default="dev",
+                        help="question set and seeded logs (default: dev)")
     args = parser.parse_args(argv)
 
+    questions_path, dates = scoring.SETS[args.set]
     stem = args.name or re.sub(r"[^\w.-]+", "-", args.model)
+    if args.set != "dev" and not args.name:
+        stem = f"{args.set}.{stem}"
     jsonl = RESULTS / f"{stem}.jsonl"
     summary_path = RESULTS / f"{stem}.summary.json"
 
     if args.rescore:
         raw = [json.loads(line) for line in jsonl.read_text(encoding="utf-8").splitlines()]
         meta = json.loads(summary_path.read_text(encoding="utf-8"))["run"]
+        questions_path = ROOT / meta["questions_file"]
     else:
-        raw, meta = ask(args.model, args.seed, args.host, args.limit)
+        raw, meta = ask(args.model, args.seed, args.host, args.limit, questions_path, dates)
         commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
                                 capture_output=True, text=True, check=False).stdout.strip()
         meta.update({
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "code_commit": commit,
             "python": platform.python_version(),
-            "questions_file": "eval/questions.jsonl",
+            "questions_file": questions_path.relative_to(ROOT).as_posix(),
             "format_instruction": scoring.FORMAT,
         })
 
-    records = score_all(raw)
+    records = score_all(raw, questions_path)
     RESULTS.mkdir(exist_ok=True)
     with open(jsonl, "w", encoding="utf-8", newline="\n") as f:
         f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
