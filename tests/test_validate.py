@@ -137,3 +137,129 @@ class TestUnsupportedClaims:
     def test_issue_text_names_the_context(self, summary):
         issue = validate.check("Morning walk is at 95%.", summary).issues[0]
         assert "Morning walk" in str(issue) and "95%" in str(issue)
+
+
+# --- ranking claims, on the seeded logs the evaluation uses ---------------
+#
+# The texts below are explanations the model wrote in the committed
+# evaluation run (eval/results/qwen2.5-7b-instruct.jsonl, dev set), quoted
+# verbatim apart from the ANSWER line. Most wrong comparisons there named the
+# right habit or day first and then added another.
+
+
+@pytest.fixture(scope="module")
+def seeded():
+    from eval import scoring
+    return {d: scoring.summary_for(d) for d in scoring.AS_OF_DATES}
+
+
+def ranking_flags(text, summary):
+    return [(i.value, i.habits[0]) for i in validate.check(text, summary).issues if i.claim]
+
+
+class TestRankingClaims:
+    def test_extra_habit_in_a_best_claim_is_flagged(self, seeded):
+        """q31, 2026-08-02: Read 20 pages (0.619) is not tied with Morning walk (0.933)."""
+        text = ("The Morning walk and Read 20 pages habits have the highest overall completion "
+                "rates at 0.619 and 0.933, respectively.")
+        assert ranking_flags(text, seeded["2026-08-02"]) == [("highest", "Read 20 pages")]
+
+    def test_them_covers_every_habit_in_the_sentence(self, seeded):
+        """q34, 2026-08-02: only No screens after 10pm is worst on weekdays."""
+        text = ('On weekdays, "No screens after 10pm" has a rate of 0.35 and "Deep work block" '
+                'has a rate of 0.55, making them the worst habits on weekdays.')
+        assert ranking_flags(text, seeded["2026-08-02"]) == [("worst", "Deep work block")]
+
+    def test_these_habits_can_point_at_the_next_sentence(self, seeded):
+        """q32, 2026-09-15: the habits are named only in the sentence after the claim."""
+        text = ('These habits have the lowest completion rates on weekends. For "Deep work '
+                'block", the rate is 0.0, and for "No screens after 10pm", the rate is 0.125.')
+        assert ranking_flags(text, seeded["2026-09-15"]) == [("lowest", "No screens after 10pm")]
+
+    def test_both_in_a_later_sentence(self, seeded):
+        """q31, 2026-09-25: 'Both are tied for the best' after naming two habits."""
+        text = ("Morning walk has the highest completion rate overall at 0.9, while Read 20 pages "
+                "has a rate of 0.667. Both are tied for the best overall performance.")
+        assert ranking_flags(text, seeded["2026-09-25"]) == [("best", "Read 20 pages")]
+
+    def test_a_tie_is_not_flagged(self, seeded):
+        """2026-08-02: Deep work block and Read 20 pages are both 0.0 at weekends."""
+        text = "Deep work block and Read 20 pages have the lowest weekend rates, both 0.0."
+        assert validate.check(text, seeded["2026-08-02"]).ok
+
+    def test_a_contrast_clause_is_not_part_of_the_claim(self, seeded):
+        """q30, 2026-09-15: the explanation is right (the ANSWER line was not)."""
+        text = ("No screens after 10pm has the lowest overall completion rate of 0.367, while "
+                "Deep work block has a rate of 0.762, which is still lower than the other habits.")
+        assert validate.check(text, seeded["2026-09-15"]).ok
+
+    def test_second_lowest_is_not_a_top_claim(self, seeded):
+        """q34, 2026-09-15: a correct sentence the old rule flagged."""
+        text = ("No screens after 10pm has a weekday rate of 0.455, which is the lowest among the "
+                "habits, and Deep work block has a weekday rate of 0.727, the second lowest, on "
+                "weekdays (mon_to_fri).")
+        assert validate.check(text, seeded["2026-09-15"]).ok
+
+    def test_wrong_days_are_flagged(self, seeded):
+        """q36, 2026-09-15: Morning walk's lowest day is Monday (0.8); weekends are 1.0."""
+        text = ("The completion rate for Morning walk is lowest on Saturdays and Sundays, with a "
+                "rate of 0.0, while on weekdays (Monday to Friday), the rate is 0.955.")
+        assert ranking_flags(text, seeded["2026-09-15"]) == [
+            ("lowest", "Saturday"), ("lowest", "Sunday")]
+
+    def test_extra_days_in_a_list_are_flagged(self, seeded):
+        """q40, 2026-09-15: Tuesday is 0.8; Wednesday and Thursday are 0.75."""
+        text = ("The completion rate for Read 20 pages is highest on Tuesday, Wednesday, and "
+                "Thursday, with a rate of 0.8 for each of these days.")
+        assert ranking_flags(text, seeded["2026-09-15"]) == [
+            ("highest", "Wednesday"), ("highest", "Thursday")]
+
+    def test_right_days_pass(self, seeded):
+        """q38 and q41: correct answers the old rule flagged as claims about habits."""
+        assert validate.check(
+            "The completion rate for Deep work block is 0.0 on both Saturdays and Sundays, "
+            "which is the lowest rate among the weekdays.", seeded["2026-09-15"]).ok
+        assert validate.check(
+            "Thursday has the highest completion rate for Deep work block at 0.8, with 4 out "
+            "of 5 days completed.", seeded["2026-09-25"]).ok
+
+    def test_a_habit_on_one_day(self, seeded):
+        """'worst habit on Mondays' compares habits on that day, not days."""
+        s = seeded["2026-09-15"]
+        rates = {h: p["by_day"]["Monday"]["rate"] for h, p in s["weekday_pattern"].items()}
+        worst = min(rates, key=rates.get)
+        best = max(rates, key=rates.get)
+        assert validate.check(f"{worst} is your worst habit on Mondays.", s).ok
+        assert ranking_flags(f"{best} is your worst habit on Mondays.", s) == [("worst", best)]
+
+    def test_longest_current_streak_claim(self, seeded):
+        """q09, 2026-09-15: Morning walk's current streak is 1; two habits are on 2."""
+        text = ("The Morning walk habit has the longest current streak of 1 day, which is also "
+                "its longest streak in the window.")
+        assert ranking_flags(text, seeded["2026-09-15"]) == [
+            ("the longest current streak", "Morning walk")]
+
+    def test_the_longest_streak_for_a_habit_is_a_number_not_a_ranking(self, seeded):
+        text = "The longest streak for Read 20 pages in the last 30 days is 5 days."
+        assert validate.check(text, seeded["2026-09-15"]).ok
+
+
+class TestJointNumbers:
+    def test_a_number_for_both_habits_must_hold_for_each(self, seeded):
+        """q31, 2026-09-15: 0.81 is Read 20 pages' rate; Morning walk is 0.967."""
+        text = ("The Morning walk and Read 20 pages habits both have an overall completion rate "
+                "of 0.81, which is the highest among all habits.")
+        issues = validate.check(text, seeded["2026-09-15"]).issues
+        assert ("0.81", ["Morning walk"]) in [(i.value, i.habits) for i in issues]
+
+    def test_respectively_pairs_the_numbers(self, seeded):
+        text = ("On weekdays, Morning walk and Read 20 pages have rates of 0.909 and 0.636 "
+                "respectively.")
+        assert validate.check(text, seeded["2026-09-25"]).ok
+
+
+def test_written_out_dates_are_not_claims(seeded):
+    """q12, 2026-09-25: a correct answer whose date was flagged as two numbers."""
+    text = ("The completion rate for Read 20 pages is 0.667, based on completing 14 out of the "
+            "expected 21 days tracked since August 27, 2026.")
+    assert validate.check(text, seeded["2026-09-25"]).ok

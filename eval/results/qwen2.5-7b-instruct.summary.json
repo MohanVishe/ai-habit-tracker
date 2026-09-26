@@ -183,12 +183,12 @@
   },
   "validator": {
     "flagged_wrong_answers": {
-      "k": 17,
+      "k": 26,
       "n": 33,
-      "rate": 0.5152,
+      "rate": 0.7879,
       "wilson95": [
-        0.3522,
-        0.675
+        0.6225,
+        0.8932
       ]
     },
     "flagged_answered_unanswerable": {
@@ -201,21 +201,21 @@
       ]
     },
     "flagged_any_error": {
-      "k": 17,
+      "k": 26,
       "n": 34,
-      "rate": 0.5,
+      "rate": 0.7647,
       "wilson95": [
-        0.3407,
-        0.6593
+        0.6,
+        0.8756
       ]
     },
     "flagged_correct_answers": {
-      "k": 9,
+      "k": 4,
       "n": 95,
-      "rate": 0.0947,
+      "rate": 0.0421,
       "wilson95": [
-        0.0506,
-        0.1703
+        0.0165,
+        0.1033
       ]
     },
     "flagged_correct_refusals": {
