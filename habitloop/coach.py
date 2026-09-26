@@ -19,11 +19,13 @@ from __future__ import annotations
 import json
 
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from .llm import get_llm
 from .prompts import COACH
+
+TEMPERATURE = 0.2
 
 
 def answer(question: str, summary: dict, history: list[tuple[str, str]] | None = None) -> str:
@@ -41,7 +43,7 @@ def answer(question: str, summary: dict, history: list[tuple[str, str]] | None =
         ("human", "{question}"),
     ])
 
-    chain = prompt | get_llm(temperature=0.2) | StrOutputParser()
+    chain = prompt | get_llm(temperature=TEMPERATURE) | StrOutputParser()
 
     return chain.invoke({
         "summary": json.dumps(summary, indent=2, sort_keys=True),

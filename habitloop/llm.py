@@ -37,10 +37,13 @@ def get_llm(temperature: float = 0.3):
     if provider == "ollama":
         from langchain_ollama import ChatOllama
 
+        # Optional fixed sampling seed, so an evaluation run can be repeated.
+        seed = os.getenv("OLLAMA_SEED")
         return ChatOllama(
             model=os.getenv("OLLAMA_MODEL", "llama3.1"),
             base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             temperature=temperature,
+            seed=int(seed) if seed else None,
         )
 
     from langchain_openai import ChatOpenAI

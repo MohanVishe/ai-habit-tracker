@@ -1,0 +1,51 @@
+{"id": "q01", "category": "streaks", "kind": "current_streak", "answer_type": "number", "question": "What is my current streak for Morning walk?", "habit": "Morning walk"}
+{"id": "q02", "category": "streaks", "kind": "current_streak", "answer_type": "number", "question": "What is my current streak for Read 20 pages?", "habit": "Read 20 pages"}
+{"id": "q03", "category": "streaks", "kind": "current_streak", "answer_type": "number", "question": "What is my current streak for Deep work block?", "habit": "Deep work block"}
+{"id": "q04", "category": "streaks", "kind": "current_streak", "answer_type": "number", "question": "What is my current streak for No screens after 10pm?", "habit": "No screens after 10pm"}
+{"id": "q05", "category": "streaks", "kind": "longest_streak", "answer_type": "number", "question": "What is my longest streak for Morning walk in the last 30 days?", "habit": "Morning walk"}
+{"id": "q06", "category": "streaks", "kind": "longest_streak", "answer_type": "number", "question": "What is my longest streak for Read 20 pages in the last 30 days?", "habit": "Read 20 pages"}
+{"id": "q07", "category": "streaks", "kind": "longest_streak", "answer_type": "number", "question": "What is my longest streak for Deep work block in the last 30 days?", "habit": "Deep work block"}
+{"id": "q08", "category": "streaks", "kind": "longest_streak", "answer_type": "number", "question": "What is my longest streak for No screens after 10pm in the last 30 days?", "habit": "No screens after 10pm"}
+{"id": "q09", "category": "streaks", "kind": "top_current_streak", "answer_type": "habit", "question": "Which habit has the longest current streak right now?"}
+{"id": "q10", "category": "streaks", "kind": "top_longest_streak", "answer_type": "habit", "question": "Which habit had the longest streak in the last 30 days?"}
+{"id": "q11", "category": "per_habit", "kind": "completion_rate", "answer_type": "rate", "question": "What is my completion rate for Morning walk?", "habit": "Morning walk"}
+{"id": "q12", "category": "per_habit", "kind": "completion_rate", "answer_type": "rate", "question": "What is my completion rate for Read 20 pages?", "habit": "Read 20 pages"}
+{"id": "q13", "category": "per_habit", "kind": "completion_rate", "answer_type": "rate", "question": "What is my completion rate for Deep work block?", "habit": "Deep work block"}
+{"id": "q14", "category": "per_habit", "kind": "completion_rate", "answer_type": "rate", "question": "What is my completion rate for No screens after 10pm?", "habit": "No screens after 10pm"}
+{"id": "q15", "category": "per_habit", "kind": "completed", "answer_type": "number", "question": "How many days did I complete Read 20 pages in the last 30 days?", "habit": "Read 20 pages"}
+{"id": "q16", "category": "per_habit", "kind": "completed", "answer_type": "number", "question": "How many days did I complete No screens after 10pm in the last 30 days?", "habit": "No screens after 10pm"}
+{"id": "q17", "category": "per_habit", "kind": "missed", "answer_type": "number", "question": "How many days did I log Deep work block as missed?", "habit": "Deep work block"}
+{"id": "q18", "category": "per_habit", "kind": "missed", "answer_type": "number", "question": "How many days did I log Morning walk as missed?", "habit": "Morning walk"}
+{"id": "q19", "category": "per_habit", "kind": "habits_tracked", "answer_type": "number", "question": "How many habits am I tracking in this summary?"}
+{"id": "q20", "category": "weekday_weekend", "kind": "weekend_rate", "answer_type": "rate", "question": "What is my weekend completion rate for Morning walk?", "habit": "Morning walk"}
+{"id": "q21", "category": "weekday_weekend", "kind": "weekend_rate", "answer_type": "rate", "question": "What is my weekend completion rate for Read 20 pages?", "habit": "Read 20 pages"}
+{"id": "q22", "category": "weekday_weekend", "kind": "weekend_rate", "answer_type": "rate", "question": "What is my weekend completion rate for Deep work block?", "habit": "Deep work block"}
+{"id": "q23", "category": "weekday_weekend", "kind": "weekend_rate", "answer_type": "rate", "question": "What is my weekend completion rate for No screens after 10pm?", "habit": "No screens after 10pm"}
+{"id": "q24", "category": "weekday_weekend", "kind": "weekday_rate", "answer_type": "rate", "question": "What is my weekday (Monday to Friday) completion rate for Read 20 pages?", "habit": "Read 20 pages"}
+{"id": "q25", "category": "weekday_weekend", "kind": "weekday_rate", "answer_type": "rate", "question": "What is my weekday (Monday to Friday) completion rate for No screens after 10pm?", "habit": "No screens after 10pm"}
+{"id": "q26", "category": "weekday_weekend", "kind": "more_reliable", "answer_type": "choice", "question": "Do I complete Morning walk more reliably on weekdays or at weekends?", "habit": "Morning walk"}
+{"id": "q27", "category": "weekday_weekend", "kind": "more_reliable", "answer_type": "choice", "question": "Do I complete Read 20 pages more reliably on weekdays or at weekends?", "habit": "Read 20 pages"}
+{"id": "q28", "category": "weekday_weekend", "kind": "more_reliable", "answer_type": "choice", "question": "Do I complete Deep work block more reliably on weekdays or at weekends?", "habit": "Deep work block"}
+{"id": "q29", "category": "weekday_weekend", "kind": "more_reliable", "answer_type": "choice", "question": "Do I complete No screens after 10pm more reliably on weekdays or at weekends?", "habit": "No screens after 10pm"}
+{"id": "q30", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit am I worst at overall?", "scope": "overall"}
+{"id": "q31", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "Which habit am I best at overall?", "scope": "overall"}
+{"id": "q32", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit am I worst at at weekends?", "scope": "sat_sun"}
+{"id": "q33", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "Which habit am I best at at weekends?", "scope": "sat_sun"}
+{"id": "q34", "category": "best_worst", "kind": "worst_habit", "answer_type": "habit", "question": "Which habit am I worst at on weekdays?", "scope": "mon_to_fri"}
+{"id": "q35", "category": "best_worst", "kind": "best_habit", "answer_type": "habit", "question": "Which habit am I best at on weekdays?", "scope": "mon_to_fri"}
+{"id": "q36", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "On which day of the week is my completion rate for Morning walk lowest?", "habit": "Morning walk"}
+{"id": "q37", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "On which day of the week is my completion rate for Read 20 pages lowest?", "habit": "Read 20 pages"}
+{"id": "q38", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "On which day of the week is my completion rate for Deep work block lowest?", "habit": "Deep work block"}
+{"id": "q39", "category": "which_day", "kind": "worst_day", "answer_type": "weekday", "question": "On which day of the week is my completion rate for No screens after 10pm lowest?", "habit": "No screens after 10pm"}
+{"id": "q40", "category": "which_day", "kind": "best_day", "answer_type": "weekday", "question": "On which day of the week is my completion rate for Read 20 pages highest?", "habit": "Read 20 pages"}
+{"id": "q41", "category": "which_day", "kind": "best_day", "answer_type": "weekday", "question": "On which day of the week is my completion rate for Deep work block highest?", "habit": "Deep work block"}
+{"id": "q42", "category": "which_day", "kind": "day_rate", "answer_type": "rate", "question": "What is my Saturday completion rate for Read 20 pages?", "habit": "Read 20 pages", "day": "Saturday"}
+{"id": "q43", "category": "which_day", "kind": "day_rate", "answer_type": "rate", "question": "What is my Monday completion rate for Morning walk?", "habit": "Morning walk", "day": "Monday"}
+{"id": "q44", "category": "unanswerable", "kind": "unknown", "answer_type": "number", "question": "What is my current streak for Meditate?"}
+{"id": "q45", "category": "unanswerable", "kind": "unknown", "answer_type": "number", "question": "What is my current streak for Drink water?"}
+{"id": "q46", "category": "unanswerable", "kind": "unknown", "answer_type": "rate", "question": "What was my completion rate for Read 20 pages over the last 90 days?"}
+{"id": "q47", "category": "unanswerable", "kind": "unknown", "answer_type": "number", "question": "How many hours did I sleep on average last week?"}
+{"id": "q48", "category": "unanswerable", "kind": "unknown", "answer_type": "weekday", "question": "On which day did I feel worst when I skipped Morning walk?"}
+{"id": "q49", "category": "unanswerable", "kind": "unknown", "answer_type": "number", "question": "At what hour of the day do I usually do my Morning walk?"}
+{"id": "q50", "category": "unanswerable", "kind": "unknown", "answer_type": "rate", "question": "What will my completion rate for Deep work block be next month?"}
+{"id": "q51", "category": "unanswerable", "kind": "unknown", "answer_type": "choice", "question": "Is my trouble with No screens after 10pm a sign of insomnia, and should I take melatonin on weekdays or at weekends?"}
