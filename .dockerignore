@@ -6,3 +6,7 @@ data
 .env
 **/__pycache__
 .pytest_cache
+tests
+eval
+examples
+requirements-dev.txt

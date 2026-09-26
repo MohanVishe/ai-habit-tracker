@@ -141,7 +141,7 @@ cd ai-habit-tracker
 
 python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt   # exact pins for every package, exported from uv.lock
+pip install -r requirements.txt   # runtime: exact pins for every package, exported from uv.lock
 
 cp .env.example .env              # add GROQ_API_KEY — free at console.groq.com
 python seed.py                    # 60 days of sample data ending today (optional)
@@ -149,6 +149,13 @@ streamlit run app.py
 ```
 
 Or with [uv](https://docs.astral.sh/uv/): `uv sync --locked`, then `uv run streamlit run app.py`.
+
+Both requirements files are generated from `uv.lock`, and CI fails if either drifts from it:
+
+```bash
+uv export --frozen --no-hashes --no-emit-project --no-dev -o requirements.txt           # runtime (what the Docker image installs)
+uv export --frozen --no-hashes --no-emit-project --all-groups -o requirements-dev.txt   # runtime + pytest
+```
 
 → **http://localhost:8501**
 
@@ -165,7 +172,8 @@ One env var, no code change; every model id is an env var too. `llama-3.3-70b-ve
 ### Tests
 
 ```bash
-pytest -q        # 66 passing
+pip install -r requirements-dev.txt   # the runtime pins plus pytest (or: uv sync --locked)
+pytest -q                             # 66 passing
 ```
 
 - `test_analytics.py` — the statistics: streak edge cases (an unlogged today doesn't break a streak, a miss logged today does, a gap does), start-date-aware completion (3/3 on a new habit is 100%; two completions in thirty days is not), per-habit weekday totals, rankings.
@@ -173,7 +181,7 @@ pytest -q        # 66 passing
 - `test_db_and_seed.py` — archived habits leave the summary, `created_on` reaches the denominator, the seed is deterministic, and the README's sample block below is exactly what `seed.py` prints.
 - `test_app.py` — runs `app.py` headless with Streamlit's AppTest: all four tabs render, archiving removes a habit from Progress, and a missing API key gives a readable message rather than a traceback.
 
-CI runs these on Python 3.11, 3.12 and 3.13 after `pip install -r requirements.txt`, again from `uv sync --locked`, and builds the Docker image and waits for its healthcheck.
+CI runs these on Python 3.11, 3.12 and 3.13 after `pip install -r requirements-dev.txt`, again from `uv sync --locked`, and builds the Docker image, checks pytest is not in it, and waits for its healthcheck.
 
 ### Docker
 
@@ -182,7 +190,7 @@ docker build -t habitloop .
 docker run -p 8501:8501 --env-file .env habitloop
 ```
 
-The healthcheck uses Python's standard library (the slim base image has no curl).
+The image installs `requirements.txt` only, the runtime dependencies without the test tooling. The healthcheck uses Python's standard library (the slim base image has no curl).
 
 ---
 
@@ -231,7 +239,7 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 ├── scripts/live_check.py       # coach + review against the sample log, checked
 ├── examples/                   # committed output of a live_check run
 ├── seed.py                     # sample data
-├── pyproject.toml, uv.lock     # dependencies; requirements.txt is exported from the lock
+├── pyproject.toml, uv.lock     # dependencies; requirements*.txt are exported from the lock
 └── Dockerfile
 ```
 

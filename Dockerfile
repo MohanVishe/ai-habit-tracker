@@ -2,6 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Runtime pins only (exported from uv.lock without the dev group): no pytest in the image.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
