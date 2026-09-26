@@ -1,0 +1,183 @@
+{
+  "about": "Hand reading of every validator flag in qwen2.5-7b-instruct.jsonl, by the eval's author. This is a judgement, not produced by code; tests/test_eval_scoring.py only checks that it covers exactly the flagged records.",
+  "flags_on_wrong_answers": [
+    {
+      "as_of": "2026-08-02",
+      "id": "q31",
+      "points_at_error": true,
+      "note": "flags 'best' for Read 20 pages, which is not the best habit: the error itself"
+    },
+    {
+      "as_of": "2026-08-02",
+      "id": "q32",
+      "points_at_error": false,
+      "note": "flags the two weekend rates (both correct) because the sentence quoting them does not say 'weekend'; the wrong habit list is not checked"
+    },
+    {
+      "as_of": "2026-08-02",
+      "id": "q39",
+      "points_at_error": true,
+      "note": "flags 0.0 as No screens after 10pm's weekend figure: the invented rate behind the wrong day"
+    },
+    {
+      "as_of": "2026-08-02",
+      "id": "q40",
+      "points_at_error": true,
+      "note": "flags 1.0 for Thursday and Friday (both 0.75)"
+    },
+    {
+      "as_of": "2026-08-02",
+      "id": "q41",
+      "points_at_error": false,
+      "note": "flags 'highest' after comparing habits on Friday; the actual error (0.75 claimed for Monday and Friday) is not flagged"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q32",
+      "points_at_error": false,
+      "note": "flags the two weekend rates (both correct) because the sentence quoting them does not say 'weekend'; the wrong habit list is not checked"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q34",
+      "points_at_error": true,
+      "note": "flags Deep work block as not the lowest on weekdays: the extra habit in the answer"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q36",
+      "points_at_error": true,
+      "note": "flags the invented 0.0 weekend rate for Morning walk"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q37",
+      "points_at_error": false,
+      "note": "flags 'lowest' after comparing habits at weekends; the actual error (Sunday is 0.25, not 0.125) is not flagged"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q39",
+      "points_at_error": true,
+      "note": "flags the invented 0.0 weekend rate"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q40",
+      "points_at_error": true,
+      "note": "flags 0.8 for Wednesday and Thursday (both 0.75)"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q09",
+      "points_at_error": true,
+      "note": "flags 24 as the current streak (24 is the longest; the current streak is 0)"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q29",
+      "points_at_error": false,
+      "note": "flags 0.4 (the weekday rate is 0.409, outside the tolerance); the conclusion that contradicts the rates is not checked"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q36",
+      "points_at_error": true,
+      "note": "flags the invented 0.0 weekend rate for Morning walk"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q39",
+      "points_at_error": true,
+      "note": "flags 0.0 as the weekend figure (Saturday is 0.25)"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q40",
+      "points_at_error": false,
+      "note": "flags 'highest' after comparing habits; the actual error (Thursday is 0.8, not 1.0) is not flagged"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q43",
+      "points_at_error": true,
+      "note": "flags the invented 0.5 Monday rate"
+    }
+  ],
+  "flags_on_correct_answers": [
+    {
+      "as_of": "2026-08-02",
+      "id": "q12",
+      "verdict": "arguable",
+      "note": "the sentence calls the 21 expected days 'days tracked from Monday to Friday'; 21 is the expected count, so the checker reads it as a weekday figure"
+    },
+    {
+      "as_of": "2026-08-02",
+      "id": "q13",
+      "verdict": "arguable",
+      "note": "same wording as q12: expected days described as weekday days"
+    },
+    {
+      "as_of": "2026-08-02",
+      "id": "q18",
+      "verdict": "misread",
+      "note": "the year in a written-out date ('July 4, 2026'); only ISO dates are skipped"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q38",
+      "verdict": "misread",
+      "note": "'lowest rate among the weekdays' means days of the week; the word 'weekdays' made the checker compare Monday-Friday rates across habits"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q41",
+      "verdict": "misread",
+      "note": "'highest on Tuesday and Wednesday' compares days; the checker compared habits"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q12",
+      "verdict": "misread",
+      "note": "a written-out date ('August 27, 2026'): 27 and 2026 read as statistics"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q33",
+      "verdict": "justified",
+      "note": "'0.0 for the other habits during weekends' is false: No screens after 10pm is 0.125"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q38",
+      "verdict": "misread",
+      "note": "same wording as 2026-09-15 q38"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q41",
+      "verdict": "misread",
+      "note": "'Thursday has the highest completion rate' compares days; the checker compared habits"
+    }
+  ],
+  "flags_on_correct_refusals": [
+    {
+      "as_of": "2026-08-02",
+      "id": "q46",
+      "verdict": "misread",
+      "note": "flags 90, taken from the question ('last 90 days'); the sentence also says 'only three days logged', which is false (it echoes the prompt's example) and is not a checked claim"
+    },
+    {
+      "as_of": "2026-09-15",
+      "id": "q46",
+      "verdict": "misread",
+      "note": "flags 90, taken from the question ('last 90 days'); the sentence also says 'only three days logged', which is false (it echoes the prompt's example) and is not a checked claim"
+    },
+    {
+      "as_of": "2026-09-25",
+      "id": "q46",
+      "verdict": "misread",
+      "note": "flags 90, taken from the question ('last 90 days'); the sentence also says 'only three days logged', which is false (it echoes the prompt's example) and is not a checked claim"
+    }
+  ]
+}

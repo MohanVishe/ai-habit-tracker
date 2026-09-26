@@ -5,6 +5,7 @@ validator.
     python -m eval.run                          # qwen2.5:7b-instruct via local Ollama
     python -m eval.run --model llama3.1         # any model Ollama serves
     python -m eval.run --rescore                # re-score the committed responses, no model
+    python -m eval.run --name qwen2.5-7b-instruct.repeat   # a second run, kept separately
 
 The answers come from habitloop.coach.answer, the app's own chat path, with
 LLM_PROVIDER=ollama; only the sampling seed is added (OLLAMA_SEED). Writes
@@ -122,11 +123,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--host", default=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
     parser.add_argument("--limit", type=int, default=None, help="first N questions (smoke test)")
+    parser.add_argument("--name", default=None,
+                        help="results file stem (default: the model name)")
     parser.add_argument("--rescore", action="store_true",
                         help="re-score the committed responses without calling a model")
     args = parser.parse_args(argv)
 
-    stem = re.sub(r"[^\w.-]+", "-", args.model)
+    stem = args.name or re.sub(r"[^\w.-]+", "-", args.model)
     jsonl = RESULTS / f"{stem}.jsonl"
     summary_path = RESULTS / f"{stem}.summary.json"
 

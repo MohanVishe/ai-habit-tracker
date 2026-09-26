@@ -28,6 +28,10 @@ Scoring rule (by the question's answer_type)
     choice   weekdays / weekends / equal ("same" counts as equal); a value
              naming both weekdays and weekends is wrong.
 
+    Sensitivity (reported, not the headline): for habit and weekday answers,
+    score only the first name in the value, so "A | B" when only A is right
+    counts as right. This separates over-long lists from wrong picks.
+
 Outcomes
     correct                answerable, value right
     wrong                  answerable, value wrong
@@ -263,6 +267,19 @@ def compare(answer_type: str, value: str, truth, habits: list[str]) -> tuple[boo
     raise ValueError(f"unknown answer_type {answer_type!r}")
 
 
+def first_named(answer_type: str, value: str, habits: list[str]) -> str | None:
+    """The habit or day named first in the value (for the sensitivity check)."""
+    names = habits if answer_type == "habit" else WEEKDAYS
+    found = []
+    for name in names:
+        pattern = (re.escape(name) if answer_type == "habit"
+                   else rf"\b{name[:3]}(?:{name[3:]})?s?\b")
+        match = re.search(pattern, value, re.IGNORECASE)
+        if match:
+            found.append((match.start(), name))
+    return min(found)[1] if found else None
+
+
 def score(question: dict, truth, response: str, habits: list[str]) -> dict:
     value, explanation = parse_response(response)
     complete = None
@@ -283,6 +300,12 @@ def evaluate(question: dict, as_of: str, response: str, summary: dict) -> dict:
     truth = ground_truth(question, summary)
     scored = score(question, truth, response, list(summary["completion"]))
     report = validate.check(scored["explanation"], summary)
+    # Sensitivity: habit/weekday answers scored on the first name alone, so an
+    # over-long list ("A | B" when only A is right) counts as right.
+    first_ok = scored["outcome"] in SUCCESS
+    if scored["outcome"] == WRONG and question["answer_type"] in ("habit", "weekday"):
+        first = first_named(question["answer_type"], scored["value"], list(summary["completion"]))
+        first_ok = first in truth
     return {
         "id": question["id"],
         "as_of": as_of,
@@ -295,6 +318,7 @@ def evaluate(question: dict, as_of: str, response: str, summary: dict) -> dict:
         "value": scored["value"],
         "outcome": scored["outcome"],
         "complete": scored["complete"],
+        "first_named_correct": first_ok,
         "validator_checked": report.checked,
         "validator_flags": [str(issue) for issue in report.issues],
     }
@@ -369,6 +393,8 @@ def summarize(records: list[dict]) -> dict:
         "accuracy": _rate(n - len(errors), n),
         "error_rate": {**_rate(len(errors), n),
                        "question_bootstrap95": [round(lo, 4), round(hi, 4)]},
+        "accuracy_if_first_named_counts": _rate(
+            sum(bool(r["first_named_correct"]) for r in records), n),
         "ties_named_partially": sum(1 for r in records if r["complete"] is False
                                     and r["outcome"] == CORRECT),
         "by_category": by_category,

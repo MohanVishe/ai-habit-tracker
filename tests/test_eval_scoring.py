@@ -160,6 +160,23 @@ def test_choice_rule(value, truth, ok):
     assert scoring.compare("choice", value, truth, HABITS)[0] is ok
 
 
+def test_first_named_is_by_position_in_the_answer():
+    assert scoring.first_named("habit", "No screens after 10pm | Deep work block", HABITS) == NS
+    assert scoring.first_named("weekday", "Sun | Saturday", HABITS) == "Sunday"
+    assert scoring.first_named("habit", "Meditate", HABITS) is None
+
+
+def test_sensitivity_counts_an_over_long_list_by_its_first_name(summaries):
+    s = summaries["2026-09-15"]  # worst overall: No screens after 10pm only
+    question = q("worst_habit", "habit", scope="overall")
+    listed = scoring.evaluate(question, "2026-09-15",
+                              f"ANSWER: {NS} | {DW}\n{NS} is at 0.367.", s)
+    wrong_first = scoring.evaluate(question, "2026-09-15",
+                                   f"ANSWER: {DW} | {NS}\n{DW} is at 0.762.", s)
+    assert listed["outcome"] == scoring.WRONG and listed["first_named_correct"] is True
+    assert wrong_first["first_named_correct"] is False
+
+
 # --- outcomes -------------------------------------------------------------
 
 
@@ -218,3 +235,16 @@ def test_committed_summary_is_reproduced_by_rescoring(jsonl):
         == [(r["id"], r["as_of"], r["outcome"], r["truth"]) for r in raw]
     committed.pop("run")
     assert json.loads(json.dumps(scoring.summarize(records))) == committed
+
+
+def test_flag_review_covers_exactly_the_flagged_records():
+    rows = [json.loads(line) for line in
+            (RESULTS / "qwen2.5-7b-instruct.jsonl").read_text(encoding="utf-8").splitlines()]
+    review = json.loads((RESULTS / "qwen2.5-7b-instruct.flag-review.json")
+                        .read_text(encoding="utf-8"))
+    for key, outcome in (("flags_on_wrong_answers", scoring.WRONG),
+                         ("flags_on_correct_answers", scoring.CORRECT),
+                         ("flags_on_correct_refusals", scoring.REFUSED_OK)):
+        flagged = {(r["as_of"], r["id"]) for r in rows
+                   if r["outcome"] == outcome and r["validator_flags"]}
+        assert {(e["as_of"], e["id"]) for e in review[key]} == flagged, key

@@ -1,0 +1,231 @@
+{
+  "run": {
+    "model": "qwen2.5:7b-instruct",
+    "provider_path": "habitloop.coach.answer -> habitloop.llm.get_llm (LLM_PROVIDER=ollama)",
+    "temperature": 0.2,
+    "seed": 42,
+    "ollama_version": "0.34.2",
+    "model_digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+    "model_details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen2",
+      "families": [
+        "qwen2"
+      ],
+      "parameter_size": "7.6B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 32768,
+      "embedding_length": 3584
+    },
+    "ollama_context_length": 4096,
+    "max_prompt_plus_output_tokens": 2936,
+    "date": "2026-09-26",
+    "code_commit": "fc886c6",
+    "python": "3.12.14",
+    "questions_file": "eval/questions.jsonl",
+    "format_instruction": "\n\nReply in exactly this format. First line: ANSWER: <value>, where <value> is {spec}. If the summary cannot answer the question, the first line is ANSWER: UNKNOWN. Second line: one sentence explaining the answer, naming the habit (and weekdays or weekends, if relevant) and giving the numbers from the summary it rests on."
+  },
+  "n_items": 153,
+  "n_questions": 51,
+  "as_of_dates": [
+    "2026-08-02",
+    "2026-09-15",
+    "2026-09-25"
+  ],
+  "outcomes": {
+    "correct": 95,
+    "wrong": 33,
+    "declined": 1,
+    "refused_correctly": 24,
+    "answered_unanswerable": 0,
+    "no_answer_line": 0
+  },
+  "accuracy": {
+    "k": 119,
+    "n": 153,
+    "rate": 0.7778,
+    "wilson95": [
+      0.7056,
+      0.8364
+    ]
+  },
+  "error_rate": {
+    "k": 34,
+    "n": 153,
+    "rate": 0.2222,
+    "wilson95": [
+      0.1636,
+      0.2944
+    ],
+    "question_bootstrap95": [
+      0.1242,
+      0.3333
+    ]
+  },
+  "accuracy_if_first_named_counts": {
+    "k": 139,
+    "n": 153,
+    "rate": 0.9085,
+    "wilson95": [
+      0.8523,
+      0.9447
+    ]
+  },
+  "ties_named_partially": 0,
+  "by_category": {
+    "streaks": {
+      "k": 27,
+      "n": 30,
+      "rate": 0.9,
+      "wilson95": [
+        0.7438,
+        0.9654
+      ],
+      "outcomes": {
+        "correct": 27,
+        "wrong": 3
+      }
+    },
+    "per_habit": {
+      "k": 27,
+      "n": 27,
+      "rate": 1.0,
+      "wilson95": [
+        0.8754,
+        1.0
+      ],
+      "outcomes": {
+        "correct": 27
+      }
+    },
+    "weekday_weekend": {
+      "k": 26,
+      "n": 30,
+      "rate": 0.8667,
+      "wilson95": [
+        0.7032,
+        0.9469
+      ],
+      "outcomes": {
+        "correct": 26,
+        "wrong": 4
+      }
+    },
+    "best_worst": {
+      "k": 3,
+      "n": 18,
+      "rate": 0.1667,
+      "wilson95": [
+        0.0584,
+        0.3922
+      ],
+      "outcomes": {
+        "wrong": 15,
+        "correct": 3
+      }
+    },
+    "which_day": {
+      "k": 12,
+      "n": 24,
+      "rate": 0.5,
+      "wilson95": [
+        0.3143,
+        0.6857
+      ],
+      "outcomes": {
+        "declined": 1,
+        "correct": 12,
+        "wrong": 11
+      }
+    },
+    "unanswerable": {
+      "k": 24,
+      "n": 24,
+      "rate": 1.0,
+      "wilson95": [
+        0.862,
+        1.0
+      ],
+      "outcomes": {
+        "refused_correctly": 24
+      }
+    }
+  },
+  "by_as_of": {
+    "2026-08-02": {
+      "k": 41,
+      "n": 51,
+      "rate": 0.8039,
+      "wilson95": [
+        0.6754,
+        0.8898
+      ]
+    },
+    "2026-09-15": {
+      "k": 39,
+      "n": 51,
+      "rate": 0.7647,
+      "wilson95": [
+        0.6324,
+        0.86
+      ]
+    },
+    "2026-09-25": {
+      "k": 39,
+      "n": 51,
+      "rate": 0.7647,
+      "wilson95": [
+        0.6324,
+        0.86
+      ]
+    }
+  },
+  "validator": {
+    "flagged_wrong_answers": {
+      "k": 17,
+      "n": 33,
+      "rate": 0.5152,
+      "wilson95": [
+        0.3522,
+        0.675
+      ]
+    },
+    "flagged_answered_unanswerable": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "wilson95": [
+        0.0,
+        1.0
+      ]
+    },
+    "flagged_any_error": {
+      "k": 17,
+      "n": 34,
+      "rate": 0.5,
+      "wilson95": [
+        0.3407,
+        0.6593
+      ]
+    },
+    "flagged_correct_answers": {
+      "k": 9,
+      "n": 95,
+      "rate": 0.0947,
+      "wilson95": [
+        0.0506,
+        0.1703
+      ]
+    },
+    "flagged_correct_refusals": {
+      "k": 3,
+      "n": 24,
+      "rate": 0.125,
+      "wilson95": [
+        0.0434,
+        0.31
+      ]
+    }
+  }
+}
