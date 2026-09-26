@@ -49,7 +49,7 @@ flowchart LR
 
 **1. Statistics are computed in Python, never by the model.**
 
-Streaks, completion rates, per-habit weekday breakdowns and best/worst rankings come out of [`habitloop/analytics.py`](habitloop/analytics.py) — pure functions over plain dicts, tested in [`tests/test_analytics.py`](tests/test_analytics.py).
+Streaks, completion rates, per-habit weekday breakdowns, best/worst rankings and the best and worst weekday per habit come out of [`habitloop/analytics.py`](habitloop/analytics.py) — pure functions over plain dicts, tested in [`tests/test_analytics.py`](tests/test_analytics.py).
 
 Asking a language model to count consecutive days across 300 rows is asking it to do the single thing it's least reliable at. And it won't error — it'll return a plausible wrong number with total confidence, which is far harder to catch than a crash. So the model gets handed finished numbers — including the *order* of habits for "which is worst at weekends?" — and its job is interpretation.
 
@@ -97,15 +97,15 @@ Checking only that "every number in the answer appears somewhere in the summary"
 - **Every number is checked in context.** The habit is the one named in the clause, or the last one named (so "It dropped to 20%" still refers to it). A clause about weekends, weekdays or a named day is checked against that habit's weekday figures; otherwise against its overall figures (completion counts, rate, target, streaks). "Weekends" means the Sat+Sun totals, not either day alone.
 - **Current vs longest streak.** A number right after "current streak" must be the current streak.
 - **Rates.** 66.7%, 67% and 0.667 all match a rate of 0.667 (half a point of rounding); a whole number matches a count exactly.
-- **Best/worst claims about one habit** ("Deep work block is your worst habit at weekends") must name the habit with the lowest (highest) rate in that context; ties are allowed.
+- **Best/worst claims, name by name.** Every habit or day named in a superlative claim must be at the top (bottom) of the computed ranking in that context, ties allowed, and each extra name is flagged: "Morning walk and Read 20 pages are your best habits" flags Read 20 pages if it isn't tied; "lowest on Saturdays and Sundays" is checked against that habit's by-day rates; "the longest current streak" against the streaks. A clause after "while" or "but" is a separate claim; "which", "both", "these" and "them" are followed back to the names they refer to; "second lowest" is not a top claim.
+- **Numbers for "both" habits** must hold for each of them.
 - Window-level numbers (window length, entry count, habit count) are allowed anywhere. Dates, list numbering, digits inside habit names ("Read 20 pages"), times of day and durations are not treated as claims.
 
 **Not enforced:**
 
 - Numbers written as words ("once every eight days").
-- Claims with no number: "you met your target", "a perfect record on weekdays", "even lower than" comparisons between two figures or two named habits.
+- Claims with no number and no superlative: "you met your target", "a perfect record on weekdays", "even lower than" comparisons between two figures or two named habits.
 - Invented habit names, and anything in the 7-day plan (its day numbers and dates aren't statistics).
-- Dates written out ("August 27, 2026"): only ISO dates are skipped, so the day and year can be flagged as unsupported numbers.
 - Ambiguous wording that the rules can't pin down — "maintained a streak of 28 days" with no "current" or "longest" is accepted if 28 is either.
 
 The checker flags; it doesn't rewrite or block the answer. It is rule-based, so it can also flag a correct sentence whose wording it misreads — the warning names the number, the habit and the context it checked, so you can see why.
@@ -120,50 +120,61 @@ This is one run of one model on one log, a spot check; the measured error rate i
 
 ## Measured accuracy
 
-[`eval/`](eval/) asks the coach a fixed set of 51 questions about three seeded logs (`seed.py` ending 2026-08-02, 2026-09-15 and 2026-09-25), 153 answers in all, and scores each against the statistics computed in Python. No model grades anything.
+[`eval/`](eval/) asks the coach fixed questions about seeded logs and scores every answer against the statistics computed in Python. No model grades anything. There are two question sets:
+
+- **Dev set** ([`questions.jsonl`](eval/questions.jsonl)): 51 questions x logs ending 2026-08-02, 09-15 and 09-25 = 153 answers. The comparison fixes (precomputed best/worst answers, a one-name rule in the coach prompt, the validator's ranking rule) were written from its failures, so its "after" figure is a **dev-set result** and flatters the fixes.
+- **Held-out set** ([`questions-heldout.jsonl`](eval/questions-heldout.jsonl)): 43 new questions, 27 of them comparisons (best/worst worded differently, a habit on one weekday, second-best, two named habits, full rankings, the biggest weekend drop), x logs ending 2026-08-24, 09-09 and 09-19 = 129 answers. It was committed (`821e555`) before any of the fixes and run **once**, after them. This is the figure to quote.
 
 **qwen2.5:7b-instruct via Ollama, 2026-09-26:**
 
-| | |
-|---|---|
-| Correct, including correct refusals | **119 / 153 = 77.8%** (Wilson 95% 70.6–83.6%) |
-| Error rate | **22.2%** (Wilson 95% 16.4–29.4%; resampling whole questions, 12.4–33.3%) |
+| | Dev, before fixes (`fc886c6`) | Dev, after fixes (`1af6dc9`) | **Held-out, after fixes** |
+|---|---|---|---|
+| Correct, including correct refusals | 119 / 153 = 77.8% (Wilson 95% 70.6–83.6%) | 135 / 153 = 88.2% (82.2–92.4%) | **65 / 129 = 50.4% (41.9–58.9%)** |
+| Resampling whole questions, error rate | 12.4–33.3% | 4.6–20.3% | 35.7–62.8% |
 
-| Question type | Correct |
-|---|---|
-| Per-habit rates and counts (completion rate, days done, days missed, habits tracked) | 27 / 27 |
-| Unanswerable or out of scope (a habit not in the window, sleep, feelings, 90 days, a forecast, a medical question) | 24 / 24 declined |
-| Current vs longest streak | 27 / 30 |
-| Weekday vs weekend (rates, and "weekdays or weekends?") | 26 / 30 |
-| Which day of the week | 12 / 24 |
-| Best / worst habit | 3 / 18 |
+| Question type | Dev before | Dev after | Held-out |
+|---|---|---|---|
+| Single per-habit figures | 27 / 27 | 27 / 27 | 9 / 9 |
+| Streaks (incl. which habit leads) | 27 / 30 | 30 / 30 | 13 / 15 |
+| Weekday vs weekend | 26 / 30 | 30 / 30 | 13 / 15 |
+| Which day of the week | 12 / 24 | 18 / 24 | 16 / 21 |
+| Best / worst habit | 3 / 18 | 6 / 18 | 4 / 30 |
+| Two named habits | — | — | 5 / 12 |
+| Full ranking / biggest drop | — | — | 2 / 12 |
+| Unanswerable, declined | 24 / 24 | 24 / 24 | 3 / 15 |
 
-**Where it goes wrong.** Reading a number out of the summary is reliable; comparing habits or days is not. 20 of the 33 wrong answers are lists that start with the right habit or day and add a wrong one ("No screens after 10pm | Deep work block" for the single worst habit); scored on the first name only, 139 / 153 (90.8%) would be correct. The rest are wrong picks, invented rates (a weekend rate of 0.0 for Morning walk, which is 1.0 and 0.875 on those logs), and four "weekdays or weekends?" answers that contradict the rates quoted in the same reply. It declined one answerable question and answered none of the unanswerable ones.
+**What this says.** On the dev set the fixes moved accuracy from 77.8% to 88.2%. On new questions and new logs the coach answers 50.4%, and that is the honest number. Reading a figure out of the summary holds up (35 of 39 held-out figure, streak and weekday/weekend answers are right). Comparisons still fail: held-out best/worst 4/30 — including the dev set's own "worst overall" worded as "least consistently" — second-best, rankings (the second place is often wrong) and the biggest-drop question. 18 of the 52 wrong held-out answers still name the right habit or day first. The held-out set also shows a failure the dev set never did: 12 of the 15 unanswerable questions were answered (a habit never logged in March, pages read per day, a forecast of next month), against 24/24 declined on the dev set.
 
-**What the validator catches**, run on each answer's explanation:
+**What the validator catches** (run on each answer's explanation; Wilson 95% intervals):
 
-- It flagged **17 of the 33 wrong answers** (Wilson 95% 35–67%). Read by hand ([`flag-review.json`](eval/results/qwen2.5-7b-instruct.flag-review.json)), 11 of those flags point at the actual error; 6 fire on something else in the sentence, such as a correct weekend rate in a sentence that doesn't say "weekend".
-- It flagged all 11 wrong which-day answers (8 of them for the right reason). The 16 wrong answers it missed are all comparisons: 11 best/worst lists, 3 weekday-vs-weekend conclusions that contradict their own numbers, 2 streak rankings. It checks best/worst claims about one habit, not claims about two, and a number given for "both" habits passes if either has it.
-- It flagged **9 of the 95 correct answers** (Wilson 95% 5–17%). By hand: 6 misreads (dates written out, "weekdays" meaning days of the week, a superlative across days read as across habits), 2 arguable, 1 a real false side claim in an otherwise correct answer. It also flagged 3 of the 24 correct refusals, on the "90" taken from the question.
+| | Wrong answers flagged | Correct answers flagged |
+|---|---|---|
+| Dev before, old validator (`fc886c6`) | 17 / 33 = 51.5% (35.2–67.5%) | 9 / 95 = 9.5% (5.1–17.0%) |
+| Dev before, same answers, new validator | 26 / 33 = 78.8% (62.3–89.3%) | 4 / 95 = 4.2% (1.7–10.3%) |
+| Dev after | 13 / 18 = 72.2% (49.1–87.5%) | 16 / 111 = 14.4% (9.1–22.1%) |
+| **Held-out** | **21 / 52 = 40.4% (28.2–53.9%)** | **12 / 62 = 19.4% (11.4–30.9%)** |
 
-**How it's scored.** Each question gets a format instruction appended: first line `ANSWER: <value>` (or `ANSWER: UNKNOWN`), then one sentence of explanation. The value is scored by a fixed rule per answer type: counts and streaks must match exactly; rates within 0.005 (0.667, 66.7% and 67% all match 0.667); every habit or day named must be in the true set (naming one of several tied is fine); "weekdays", "weekends" or "equal" for the choice questions. The full rule is at the top of [`eval/scoring.py`](eval/scoring.py), with unit tests for each. The expected answer for every question is read from `analytics.build_summary` for that log, and a test cross-checks it against the individual analytics functions. The validator sees the explanation, not the bare `ANSWER:` line, which has no habit or part of the week beside it to check against.
+It also flagged 2 of the 12 answered-unanswerable held-out questions, and 3 of 24 (dev before), 4 of 24 (dev after) and 0 of 3 (held-out) correct refusals. The dev rows are the rule's own development data. Read by hand ([`flag-review.json`](eval/results/qwen2.5-7b-instruct.flag-review.json)), 25 of the 26 new flags on the dev-before wrong answers point at the actual error. Of the 4 on correct answers, 2 are arguable and 2 are real false side claims. The held-out flags have not been read by hand. What it cannot see: a wrong `ANSWER:` line with a correct explanation ("A has the lowest rate, while B has 0.52"), comparative claims without a superlative, and, on held-out, answers to unanswerable questions that quote real numbers.
 
-**Setup.** `qwen2.5:7b-instruct` (Q4_K_M, digest `845dbda0ea48`) on Ollama 0.34.2, through the app's own chat path (`habitloop.coach.answer` with `LLM_PROVIDER=ollama`) at the coach's temperature of 0.2, with `OLLAMA_SEED=42`. Context was 4,096 tokens; the largest prompt plus answer was 2,936. A second identical run ([`.repeat`](eval/results/qwen2.5-7b-instruct.repeat.summary.json)) gave the same text for 141 of 153 answers; the other 12 changed wording only, and every outcome and validator verdict was the same.
+**How it's scored.** Each question gets a format instruction appended: first line `ANSWER: <value>` (or `ANSWER: UNKNOWN`), then one sentence of explanation. The value is scored by a fixed rule per answer type: counts and streaks must match exactly; rates within 0.005 (0.667, 66.7% and 67% all match 0.667); every habit or day named must be in the true set (naming one of several tied is fine); "weekdays", "weekends" or "equal" for the choice questions; a ranking must name every habit once in an order consistent with the rates. The full rule is at the top of [`eval/scoring.py`](eval/scoring.py), with unit tests for each. The expected answers are read from `analytics.build_summary`, and tests cross-check them against the individual analytics functions and check that the held-out logs differ from the dev logs (`seed.py` repeats a log for an end date on the same weekday, so the held-out dates fall on other weekdays).
+
+**Setup.** `qwen2.5:7b-instruct` (Q4_K_M, digest `845dbda0ea48`) on Ollama 0.34.2, through the app's own chat path (`habitloop.coach.answer` with `LLM_PROVIDER=ollama`) at the coach's temperature of 0.2, with `OLLAMA_SEED=42`, context 4,096 tokens. The largest prompt plus answer was 2,936 tokens before the fixes, and 3,424 (dev) and 3,459 (held-out) after them. A repeat of the dev-before run ([`.repeat`](eval/results/qwen2.5-7b-instruct.repeat.summary.json)) gave the same text for 141 of 153 answers. The other 12 changed wording only, with the same outcome and validator verdict on all 153.
 
 **Limits.**
 
 - The logs are synthetic: one seeded generator, four habits in the window. Real logs are messier.
-- One model, one seed.
+- One model, one seed, one run of each set after the fixes. The held-out set was not run on the code before the fixes, so it shows where the coach stands, not how much the fixes moved it on new questions.
 - The questions, the scoring rules and the validator were all written by the same author, so they may share blind spots.
 - The format instruction makes answers scoreable, but it is not how the chat tab is used. Free-form answers may do better or worse.
-- The same 51 questions are asked of three logs, so the 153 answers are not independent. That is why the question-level interval is wider.
+- Each question is asked of three logs, so answers are not independent. That is why the question-level intervals are wider.
 
 ```bash
 python -m eval.run              # ask the model (Ollama with the model pulled), then score
 python -m eval.run --rescore    # re-score the committed responses offline; a test does the same
+python -m eval.run --set heldout   # the held-out questions and logs
 ```
 
-Raw answers with their scores: [`eval/results/qwen2.5-7b-instruct.jsonl`](eval/results/qwen2.5-7b-instruct.jsonl). Summary: [`qwen2.5-7b-instruct.summary.json`](eval/results/qwen2.5-7b-instruct.summary.json).
+Raw answers with their scores, in [`eval/results/`](eval/results/): `qwen2.5-7b-instruct` (dev, before), `qwen2.5-7b-instruct.after` (dev, after), `heldout.qwen2.5-7b-instruct` (held-out). Each has a `.jsonl` and a `.summary.json`.
 
 ---
 
@@ -223,7 +234,7 @@ One env var, no code change; every model id is an env var too. `llama-3.3-70b-ve
 
 ```bash
 pip install -r requirements-dev.txt   # the runtime pins plus pytest (or: uv sync --locked)
-pytest -q                             # 123 passing, no model or network needed
+pytest -q                             # 153 passing, no model or network needed
 ```
 
 - `test_analytics.py` — the statistics: streak edge cases (an unlogged today doesn't break a streak, a miss logged today does, a gap does), start-date-aware completion (3/3 on a new habit is 100%; two completions in thirty days is not), per-habit weekday totals, rankings.
@@ -299,8 +310,10 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 
 ## Limitations
 
-- **The claim checker is rule-based.** It covers numbers and best/worst claims in context; the list of what it doesn't cover is above. It flags rather than blocks. On the eval it flagged 17 of 33 wrong answers and 9 of 95 correct ones.
-- **The coach is weak at comparisons.** On the eval, best/worst habit answers were right 3 times in 18 and which-day answers 12 times in 24, against 27 of 27 for single per-habit figures.
+- **The claim checker is rule-based.** It covers numbers and best/worst claims in context; the list of what it doesn't cover is above. It flags rather than blocks. On the held-out set it flagged 21 of 52 wrong answers and 12 of 62 correct ones.
+- **The coach is weak at comparisons.** On the held-out set, best/worst habit answers were right 4 times in 30 and rankings 2 in 12, against 35 of 39 for single figures, streaks and weekday/weekend.
+- **It answers some questions the log can't.** 12 of 15 held-out unanswerable questions got an answer.
+- **The prompt is about 3,400 tokens** with the seeded log. Ollama's default 4,096-token context leaves little room for chat history.
 - **Streaks are daily.** A 5×/week habit's streak resets at a skipped weekend even when the weekly target is met.
 - **A habit with no entries in the window disappears** rather than being reported as dropped (Meditate in the sample data) — arguably the more useful signal.
 - **30-day window is fixed** in the UI. The analytics functions take any window; the UI doesn't expose it yet.
@@ -311,11 +324,12 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 
 ## Next
 
-1. **Close the gaps the eval measures**, then re-run it: best/worst and which-day answers (3/18 and 12/24), e.g. a precomputed best and worst weekday per habit and explicit ties in the rankings; checker coverage for claims about two habits at once, dates written out and numbers written as words.
-2. **Widen the eval**: the default Groq Llama 3.3 70B (not yet run), hand-written logs, questions written by someone else, and free-form answers.
-3. **Weekly-target streaks** for habits below 7×/week, and reporting abandoned habits as dropped.
-4. **Configurable window** and habit-level history charts.
-5. **Correlation between habits** — does the walk happening predict the deep-work block happening? The data supports asking; the analytics don't compute it yet.
+1. **Comparisons that generalise**: answer "which is best/worst/second/rank" questions from the computed rankings in code (route the question, let the model phrase the answer) rather than by prompt, since the prompt rule helped on the dev wording and not on new wording (held-out best/worst 4/30).
+2. **Refusals on held-out wording**: 12 of 15 unanswerable held-out questions were answered. Add a check for claims about periods, units or habits the summary doesn't hold.
+3. **A fresh held-out set** written after these results, the held-out set run on the code before the fixes, and the default Groq Llama 3.3 70B (not yet run); checker coverage for numbers written as words and a compacter summary format for small contexts.
+4. **Weekly-target streaks** for habits below 7×/week, and reporting abandoned habits as dropped.
+5. **Configurable window** and habit-level history charts.
+6. **Correlation between habits** — does the walk happening predict the deep-work block happening? The data supports asking; the analytics don't compute it yet.
 
 ## Credits
 
