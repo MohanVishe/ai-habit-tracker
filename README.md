@@ -105,6 +105,7 @@ Checking only that "every number in the answer appears somewhere in the summary"
 - Numbers written as words ("once every eight days").
 - Claims with no number: "you met your target", "a perfect record on weekdays", "even lower than" comparisons between two figures or two named habits.
 - Invented habit names, and anything in the 7-day plan (its day numbers and dates aren't statistics).
+- Dates written out ("August 27, 2026"): only ISO dates are skipped, so the day and year can be flagged as unsupported numbers.
 - Ambiguous wording that the rules can't pin down — "maintained a streak of 28 days" with no "current" or "longest" is accepted if 28 is either.
 
 The checker flags; it doesn't rewrite or block the answer. It is rule-based, so it can also flag a correct sentence whose wording it misreads — the warning names the number, the habit and the context it checked, so you can see why.
@@ -113,7 +114,56 @@ The checker flags; it doesn't rewrite or block the answer. It is rule-based, so 
 
 [`scripts/live_check.py`](scripts/live_check.py) seeds the fixed sample log, asks the coach four questions (including the UI's own placeholder, "Which habit am I worst at on weekends?") and requests a weekly review, then runs the checker on each answer. One run with **qwen2.5:7b-instruct via Ollama**, 2026-09-26, is committed as [`examples/live_check_qwen2.5-7b-instruct.txt`](examples/live_check_qwen2.5-7b-instruct.txt). In that run the coach named Deep work block as worst at weekends (0.0, correct per the summary's rankings), declined the meditation and feelings questions, and the checker flagged nothing. The review's "maintained a streak of 28 consecutive days" (28 is the longest, the current streak is 1) was not flagged: it is the ambiguous-wording case listed above.
 
-This is one run of one model on one log — a spot check, not an error rate. Earlier runs while building this surfaced three kinds of error that are now unit tests: a wrong "worst at weekends" with every number correct, a longest streak reported as the current one, and a single day's rate quoted as the weekend rate.
+This is one run of one model on one log, a spot check; the measured error rate is in the next section. Earlier runs while building this surfaced three kinds of error that are now unit tests: a wrong "worst at weekends" with every number correct, a longest streak reported as the current one, and a single day's rate quoted as the weekend rate.
+
+---
+
+## Measured accuracy
+
+[`eval/`](eval/) asks the coach a fixed set of 51 questions about three seeded logs (`seed.py` ending 2026-08-02, 2026-09-15 and 2026-09-25), 153 answers in all, and scores each against the statistics computed in Python. No model grades anything.
+
+**qwen2.5:7b-instruct via Ollama, 2026-09-26:**
+
+| | |
+|---|---|
+| Correct, including correct refusals | **119 / 153 = 77.8%** (Wilson 95% 70.6–83.6%) |
+| Error rate | **22.2%** (Wilson 95% 16.4–29.4%; resampling whole questions, 12.4–33.3%) |
+
+| Question type | Correct |
+|---|---|
+| Per-habit rates and counts (completion rate, days done, days missed, habits tracked) | 27 / 27 |
+| Unanswerable or out of scope (a habit not in the window, sleep, feelings, 90 days, a forecast, a medical question) | 24 / 24 declined |
+| Current vs longest streak | 27 / 30 |
+| Weekday vs weekend (rates, and "weekdays or weekends?") | 26 / 30 |
+| Which day of the week | 12 / 24 |
+| Best / worst habit | 3 / 18 |
+
+**Where it goes wrong.** Reading a number out of the summary is reliable; comparing habits or days is not. 20 of the 33 wrong answers are lists that start with the right habit or day and add a wrong one ("No screens after 10pm | Deep work block" for the single worst habit); scored on the first name only, 139 / 153 (90.8%) would be correct. The rest are wrong picks, invented rates (a weekend rate of 0.0 for Morning walk, which is 1.0 and 0.875 on those logs), and four "weekdays or weekends?" answers that contradict the rates quoted in the same reply. It declined one answerable question and answered none of the unanswerable ones.
+
+**What the validator catches**, run on each answer's explanation:
+
+- It flagged **17 of the 33 wrong answers** (Wilson 95% 35–67%). Read by hand ([`flag-review.json`](eval/results/qwen2.5-7b-instruct.flag-review.json)), 11 of those flags point at the actual error; 6 fire on something else in the sentence, such as a correct weekend rate in a sentence that doesn't say "weekend".
+- It flagged all 11 wrong which-day answers (8 of them for the right reason). The 16 wrong answers it missed are all comparisons: 11 best/worst lists, 3 weekday-vs-weekend conclusions that contradict their own numbers, 2 streak rankings. It checks best/worst claims about one habit, not claims about two, and a number given for "both" habits passes if either has it.
+- It flagged **9 of the 95 correct answers** (Wilson 95% 5–17%). By hand: 6 misreads (dates written out, "weekdays" meaning days of the week, a superlative across days read as across habits), 2 arguable, 1 a real false side claim in an otherwise correct answer. It also flagged 3 of the 24 correct refusals, on the "90" taken from the question.
+
+**How it's scored.** Each question gets a format instruction appended: first line `ANSWER: <value>` (or `ANSWER: UNKNOWN`), then one sentence of explanation. The value is scored by a fixed rule per answer type: counts and streaks must match exactly; rates within 0.005 (0.667, 66.7% and 67% all match 0.667); every habit or day named must be in the true set (naming one of several tied is fine); "weekdays", "weekends" or "equal" for the choice questions. The full rule is at the top of [`eval/scoring.py`](eval/scoring.py), with unit tests for each. The expected answer for every question is read from `analytics.build_summary` for that log, and a test cross-checks it against the individual analytics functions. The validator sees the explanation, not the bare `ANSWER:` line, which has no habit or part of the week beside it to check against.
+
+**Setup.** `qwen2.5:7b-instruct` (Q4_K_M, digest `845dbda0ea48`) on Ollama 0.34.2, through the app's own chat path (`habitloop.coach.answer` with `LLM_PROVIDER=ollama`) at the coach's temperature of 0.2, with `OLLAMA_SEED=42`. Context was 4,096 tokens; the largest prompt plus answer was 2,936. A second identical run ([`.repeat`](eval/results/qwen2.5-7b-instruct.repeat.summary.json)) gave the same text for 141 of 153 answers; the other 12 changed wording only, and every outcome and validator verdict was the same.
+
+**Limits.**
+
+- The logs are synthetic: one seeded generator, four habits in the window. Real logs are messier.
+- One model, one seed.
+- The questions, the scoring rules and the validator were all written by the same author, so they may share blind spots.
+- The format instruction makes answers scoreable, but it is not how the chat tab is used. Free-form answers may do better or worse.
+- The same 51 questions are asked of three logs, so the 153 answers are not independent. That is why the question-level interval is wider.
+
+```bash
+python -m eval.run              # ask the model (Ollama with the model pulled), then score
+python -m eval.run --rescore    # re-score the committed responses offline; a test does the same
+```
+
+Raw answers with their scores: [`eval/results/qwen2.5-7b-instruct.jsonl`](eval/results/qwen2.5-7b-instruct.jsonl). Summary: [`qwen2.5-7b-instruct.summary.json`](eval/results/qwen2.5-7b-instruct.summary.json).
 
 ---
 
@@ -173,12 +223,13 @@ One env var, no code change; every model id is an env var too. `llama-3.3-70b-ve
 
 ```bash
 pip install -r requirements-dev.txt   # the runtime pins plus pytest (or: uv sync --locked)
-pytest -q                             # 66 passing
+pytest -q                             # 123 passing, no model or network needed
 ```
 
 - `test_analytics.py` — the statistics: streak edge cases (an unlogged today doesn't break a streak, a miss logged today does, a gap does), start-date-aware completion (3/3 on a new habit is 100%; two completions in thirty days is not), per-habit weekday totals, rankings.
 - `test_validate.py` — the claim checker: what passes, what is flagged, including the errors seen from a live model.
 - `test_db_and_seed.py` — archived habits leave the summary, `created_on` reaches the denominator, the seed is deterministic, and the README's sample block below is exactly what `seed.py` prints.
+- `test_eval_scoring.py` — the evaluation: expected answers cross-checked against the analytics functions, the answer parser, every scoring rule, the interval code, and that re-scoring the committed responses reproduces the committed summary.
 - `test_app.py` — runs `app.py` headless with Streamlit's AppTest: all four tabs render, archiving removes a habit from Progress, and a missing API key gives a readable message rather than a traceback.
 
 CI runs these on Python 3.11, 3.12 and 3.13 after `pip install -r requirements-dev.txt`, again from `uv sync --locked`, and builds the Docker image, checks pytest is not in it, and waits for its healthcheck.
@@ -236,6 +287,7 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 │   ├── insights.py             # weekly review, 7-day plan
 │   └── coach.py                # grounded chat
 ├── tests/                      # analytics, validator, storage + seed, app smoke test
+├── eval/                       # question set, scorer, runner and committed results
 ├── scripts/live_check.py       # coach + review against the sample log, checked
 ├── examples/                   # committed output of a live_check run
 ├── seed.py                     # sample data
@@ -247,7 +299,8 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 
 ## Limitations
 
-- **The claim checker is rule-based.** It covers numbers and best/worst claims in context; the list of what it doesn't cover is above. It flags rather than blocks.
+- **The claim checker is rule-based.** It covers numbers and best/worst claims in context; the list of what it doesn't cover is above. It flags rather than blocks. On the eval it flagged 17 of 33 wrong answers and 9 of 95 correct ones.
+- **The coach is weak at comparisons.** On the eval, best/worst habit answers were right 3 times in 18 and which-day answers 12 times in 24, against 27 of 27 for single per-habit figures.
 - **Streaks are daily.** A 5×/week habit's streak resets at a skipped weekend even when the weekly target is met.
 - **A habit with no entries in the window disappears** rather than being reported as dropped (Meditate in the sample data) — arguably the more useful signal.
 - **30-day window is fixed** in the UI. The analytics functions take any window; the UI doesn't expose it yet.
@@ -258,16 +311,16 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 
 ## Next
 
-1. **An evaluation set** — fixed logs with questions whose correct answers are known (including unanswerable ones), scored per provider, so prompt or model changes report a measured claim-level error rate instead of a spot check.
-2. **Weekly-target streaks** for habits below 7×/week, and reporting abandoned habits as dropped.
-3. **Checker coverage** for numbers written as words and two-habit comparisons.
+1. **Close the gaps the eval measures**, then re-run it: best/worst and which-day answers (3/18 and 12/24), e.g. a precomputed best and worst weekday per habit and explicit ties in the rankings; checker coverage for claims about two habits at once, dates written out and numbers written as words.
+2. **Widen the eval**: the default Groq Llama 3.3 70B (not yet run), hand-written logs, questions written by someone else, and free-form answers.
+3. **Weekly-target streaks** for habits below 7×/week, and reporting abandoned habits as dropped.
 4. **Configurable window** and habit-level history charts.
 5. **Correlation between habits** — does the walk happening predict the deep-work block happening? The data supports asking; the analytics don't compute it yet.
 
 ## Credits
 
 - Default model: Meta **Llama 3.3 70B** (served by Groq), under the [Llama 3.3 Community License](https://github.com/meta-llama/llama-models/blob/main/models/llama3_3/LICENSE).
-- Live-run example: **Qwen2.5-7B-Instruct** (via Ollama), Apache 2.0.
+- Live-run example and evaluation: **Qwen2.5-7B-Instruct** (via Ollama), Apache 2.0.
 
 ## License
 
