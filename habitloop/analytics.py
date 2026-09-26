@@ -135,6 +135,16 @@ def _bucket(done: int, missed: int, days: int) -> dict:
     }
 
 
+def tied_best(values: dict[str, float | None], pick=max) -> list[str]:
+    """Every key sharing the highest (pick=min: lowest) value, in input order.
+    More than one name means an exact tie; None values are skipped."""
+    known = {k: v for k, v in values.items() if v is not None}
+    if not known:
+        return []
+    target = pick(known.values())
+    return [k for k, v in known.items() if v == target]
+
+
 def weekday_pattern(entries: list[dict], habit_name: str, start: date,
                     today: date) -> dict:
     """One habit's completions per weekday, from `start` to `today` inclusive.
@@ -143,6 +153,12 @@ def weekday_pattern(entries: list[dict], habit_name: str, start: date,
     share of, say, Saturdays on which the habit was done. `sat_sun` and
     `mon_to_fri` aggregate the same counts — they answer "worst at weekends?"
     directly instead of leaving the model to add up rows.
+
+    `best_days` / `worst_days` (every day tied at the top or bottom rate) and
+    `stronger_on` answer "which day?" and "weekdays or weekends?" outright. On
+    the evaluation set, reading seven rates and picking the extreme was where
+    the model went wrong most: it added a second day, or quoted a rate that
+    isn't there.
     """
     counts = {n: {"done": 0, "missed": 0} for n in WEEKDAYS}
     for entry in entries:
@@ -165,10 +181,22 @@ def weekday_pattern(entries: list[dict], habit_name: str, start: date,
             sum(days[n] for n in names),
         )
 
+    by_day = {n: _bucket(counts[n]["done"], counts[n]["missed"], days[n]) for n in WEEKDAYS}
+    mon_to_fri, sat_sun = total(WEEKDAYS[:5]), total(WEEKDAYS[5:])
+    rates = {n: b["rate"] for n, b in by_day.items()}
+    if mon_to_fri["rate"] is None or sat_sun["rate"] is None:
+        stronger = None
+    elif mon_to_fri["rate"] == sat_sun["rate"]:
+        stronger = "equal"
+    else:
+        stronger = "weekdays" if mon_to_fri["rate"] > sat_sun["rate"] else "weekends"
     return {
-        "by_day": {n: _bucket(counts[n]["done"], counts[n]["missed"], days[n]) for n in WEEKDAYS},
-        "mon_to_fri": total(WEEKDAYS[:5]),
-        "sat_sun": total(WEEKDAYS[5:]),
+        "by_day": by_day,
+        "mon_to_fri": mon_to_fri,
+        "sat_sun": sat_sun,
+        "best_days": tied_best(rates, max),
+        "worst_days": tied_best(rates, min),
+        "stronger_on": stronger,
     }
 
 
@@ -183,6 +211,13 @@ def build_summary(entries: list[dict], window_days: int = 30,
     today = today or date.today()
     habits = sorted({e["name"] for e in entries})
     completion = completion_by_habit(entries, window_days, today)
+    streaks = {
+        name: {
+            "current": current_streak(entries, name, today),
+            "longest_in_window": longest_streak(entries, name),
+        }
+        for name in habits
+    }
     weekdays = {
         name: weekday_pattern(
             entries, name, date.fromisoformat(completion[name]["tracked_since"]), today
@@ -196,33 +231,43 @@ def build_summary(entries: list[dict], window_days: int = 30,
         "total_entries": len(entries),
         "habits_tracked": len(habits),
         "completion": completion,
-        "streaks": {
-            name: {
-                "current": current_streak(entries, name, today),
-                "longest_in_window": longest_streak(entries, name),
-            }
-            for name in habits
-        },
+        "streaks": streaks,
         "weekday_pattern": weekdays,
-        "rankings": rankings(completion, weekdays),
+        "rankings": rankings(completion, weekdays, streaks),
     }
 
 
-def rankings(completion: dict, weekdays: dict) -> dict[str, list]:
-    """Habits ordered worst-first by each rate, as [name, rate] pairs.
+def rankings(completion: dict, weekdays: dict, streaks: dict | None = None) -> dict:
+    """Habits ordered worst-first by each rate, as [name, rate] pairs, plus the
+    answer to "which is best / worst?" for each rate and for streaks.
 
     "Which habit am I worst at on weekends?" is a comparison across habits.
     Left to the model, it is one more place to get the order wrong while every
-    individual number is right, so the order is computed here too.
+    individual number is right, so the order is computed here too. The
+    ordered lists alone were not enough: on the evaluation set the model read
+    the right first entry and then added the next one. So `best` and `worst`
+    hold only the habit(s) at the top or bottom; two names there means an
+    exact tie.
     """
     def order(rates: dict[str, float | None]) -> list:
         known = [(n, r) for n, r in rates.items() if r is not None]
         return [[n, r] for n, r in sorted(known, key=lambda kv: (kv[1], kv[0]))]
 
+    rates = {
+        "overall": {n: c["rate"] for n, c in completion.items()},
+        "sat_sun": {n: w["sat_sun"]["rate"] for n, w in weekdays.items()},
+        "mon_to_fri": {n: w["mon_to_fri"]["rate"] for n, w in weekdays.items()},
+    }
+    best = {scope: sorted(tied_best(r, max)) for scope, r in rates.items()}
+    worst = {scope: sorted(tied_best(r, min)) for scope, r in rates.items()}
+    if streaks:
+        best["current_streak"] = sorted(tied_best({n: s["current"] for n, s in streaks.items()}))
+        best["longest_streak_in_window"] = sorted(
+            tied_best({n: s["longest_in_window"] for n, s in streaks.items()}))
     return {
-        "completion_rate_worst_first": order({n: c["rate"] for n, c in completion.items()}),
-        "sat_sun_rate_worst_first": order({n: w["sat_sun"]["rate"] for n, w in weekdays.items()}),
-        "mon_to_fri_rate_worst_first": order(
-            {n: w["mon_to_fri"]["rate"] for n, w in weekdays.items()}
-        ),
+        "completion_rate_worst_first": order(rates["overall"]),
+        "sat_sun_rate_worst_first": order(rates["sat_sun"]),
+        "mon_to_fri_rate_worst_first": order(rates["mon_to_fri"]),
+        "best": best,
+        "worst": worst,
     }

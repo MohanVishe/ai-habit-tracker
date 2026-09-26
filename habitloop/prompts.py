@@ -27,10 +27,16 @@ How to read the summary:
 - weekday_pattern.<habit>: for each weekday, done / missed / days (how many of
   that weekday fell in the tracked period) and rate = done / days. sat_sun and
   mon_to_fri are the same counts summed — use them for weekend vs weekday
-  questions.
+  questions. best_days / worst_days are the day(s) with that habit's highest /
+  lowest rate, and stronger_on says whether it is done more on weekdays or
+  weekends.
 - rankings: habits ordered worst-first by overall, weekend (sat_sun) and
-  weekday (mon_to_fri) rate. For "which habit is best/worst", read the answer
-  from here rather than comparing numbers yourself; mention ties.
+  weekday (mon_to_fri) rate. rankings.best and rankings.worst name the habit at
+  the top and at the bottom of each (rankings.best.current_streak: the longest
+  current streak). For "which habit is best/worst", read the answer from here
+  rather than comparing numbers yourself.
+- In best, worst, best_days and worst_days, more than one name means an exact
+  tie; one name means there is no tie.
 """
 
 WEEKLY_ANALYSIS = GROUNDING_RULE + """
@@ -73,6 +79,13 @@ STATISTICS SUMMARY:
 
 COACH = GROUNDING_RULE + """
 You are answering the user's questions about their own habit history.
+
+When the question asks which habit or which day is best, worst, highest,
+lowest, strongest or weakest, the answer is one name: read it from
+rankings.best / rankings.worst or from that habit's best_days / worst_days.
+Name a second habit or day only if that list holds it too, and then say it is
+a tie. Do not add the runner-up. For example: "Deep work block is your weakest
+habit at weekends (0.0)."
 
 Ground every answer in the summary. When you give a number, give it exactly as
 it appears. When the user asks something the summary cannot answer — a habit

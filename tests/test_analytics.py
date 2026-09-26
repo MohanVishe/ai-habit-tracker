@@ -189,6 +189,21 @@ class TestWeekdayPattern:
         assert self.pattern([], "Walk")["sat_sun"] == {
             "done": 0, "missed": 0, "days": 4, "rate": 0.0}
 
+    def test_best_and_worst_days_and_stronger_part_of_the_week(self):
+        """Done every weekday, never at weekends: every weekday ties for best."""
+        entries = [entry("Deep work", days_ago(i), done=days_ago(i).weekday() < 5, target=5)
+                   for i in range(14)]
+        pattern = self.pattern(entries, "Deep work")
+        assert pattern["best_days"] == ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        assert pattern["worst_days"] == ["Saturday", "Sunday"]
+        assert pattern["stronger_on"] == "weekdays"
+
+    def test_single_worst_day(self):
+        entries = [entry("Walk", days_ago(i), done=days_ago(i).weekday() != 2) for i in range(14)]
+        pattern = self.pattern(entries, "Walk")
+        assert pattern["worst_days"] == ["Wednesday"]
+        assert pattern["stronger_on"] == "weekends"
+
     def test_entries_outside_the_period_are_ignored(self):
         pattern = self.pattern([entry("Walk", self.START - timedelta(days=1))], "Walk")
         assert pattern["mon_to_fri"]["done"] + pattern["sat_sun"]["done"] == 0
@@ -203,7 +218,8 @@ class TestSummary:
         assert summary["total_entries"] == 3
         assert summary["streaks"]["Walk"] == {"current": 3, "longest_in_window": 3}
         assert "Walk" in summary["completion"]
-        assert set(summary["weekday_pattern"]["Walk"]) == {"by_day", "mon_to_fri", "sat_sun"}
+        assert set(summary["weekday_pattern"]["Walk"]) == {
+            "by_day", "mon_to_fri", "sat_sun", "best_days", "worst_days", "stronger_on"}
 
     def test_weekday_pattern_uses_the_habit_start(self):
         created = days_ago(2)  # Saturday, Sunday, Monday
@@ -225,6 +241,24 @@ class TestSummary:
         assert ranks["sat_sun_rate_worst_first"][0] == ["Work", 0.0]
         assert [n for n, _ in ranks["mon_to_fri_rate_worst_first"]] == ["Read", "Walk", "Work"]
         assert [n for n, _ in ranks["completion_rate_worst_first"]] == ["Read", "Work", "Walk"]
+
+    def test_best_and_worst_are_named_with_ties(self):
+        entries = []
+        for i in range(14):
+            day = days_ago(i)
+            weekend = day.weekday() >= 5
+            entries.append(entry("Walk", day, done=True))
+            entries.append(entry("Work", day, done=not weekend))
+            entries.append(entry("Read", day, done=weekend))
+            entries.append(entry("Gym", day, done=not weekend))
+        ranks = analytics.build_summary(entries, 14, TODAY)["rankings"]
+        assert ranks["best"]["sat_sun"] == ["Read", "Walk"]        # a tie at 1.0
+        assert ranks["worst"]["sat_sun"] == ["Gym", "Work"]        # a tie at 0.0
+        assert ranks["best"]["overall"] == ["Walk"]
+        assert ranks["worst"]["overall"] == ["Read"]
+        assert ranks["best"]["mon_to_fri"] == ["Gym", "Walk", "Work"]
+        assert ranks["best"]["current_streak"] == ["Walk"]
+        assert ranks["best"]["longest_streak_in_window"] == ["Walk"]
 
     def test_empty_log_does_not_crash(self):
         summary = analytics.build_summary([], 30, TODAY)
