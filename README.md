@@ -51,12 +51,12 @@ flowchart LR
 
 Streaks, completion rates, per-habit weekday breakdowns, best/worst rankings and the best and worst weekday per habit come out of [`habitloop/analytics.py`](habitloop/analytics.py) — pure functions over plain dicts, tested in [`tests/test_analytics.py`](tests/test_analytics.py).
 
-Asking a language model to count consecutive days across 300 rows is asking it to do the single thing it's least reliable at. And it won't error — it'll return a plausible wrong number with total confidence, which is far harder to catch than a crash. So the model gets handed finished numbers — including the *order* of habits for "which is worst at weekends?" — and its job is interpretation.
+Asking a language model to count consecutive days across 300 rows is asking it to do the single thing it's least reliable at. And it won't error. It returns a plausible wrong number with total confidence, which is far harder to catch than a crash. So the model gets finished numbers, including the *order* of habits for "which is worst at weekends?", and its job is interpretation.
 
 What the numbers mean:
 
 - **Completion** is done days ÷ the weekly target scaled to the days the habit has existed inside the 30-day window. A habit added three days ago and done all three days is 100%, not 10%.
-- **Current streak** counts back from today. Today not yet logged doesn't break it (the day isn't over); a miss logged today does — the streak is 0.
+- **Current streak** counts back from today. Today not yet logged doesn't break it (the day isn't over). A miss logged today does: the streak is 0.
 - **Weekday pattern** is per habit: for each weekday, done / missed / how many of that weekday fell in the period, plus Sat+Sun and Mon–Fri totals.
 - **Archived habits** are left out of Progress and out of the summary.
 
@@ -84,7 +84,7 @@ Every one of the three prompts opens with the same block ([`habitloop/prompts.py
   habit's total misses are not its weekend misses.
 ```
 
-Temperature runs at 0.2–0.4. This app interprets numbers it was given; creativity here surfaces as fabricated detail about your own life, which is the one failure that matters.
+Temperature runs at 0.2–0.4. This app interprets numbers it was given. Creativity here shows up as made-up detail about your own life, which is the one failure that matters.
 
 ---
 
@@ -94,9 +94,9 @@ Checking only that "every number in the answer appears somewhere in the summary"
 
 **Enforced (flagged in the UI, covered by [`tests/test_validate.py`](tests/test_validate.py)):**
 
-- **Every number is checked in context.** The habit is the one named in the clause, or the last one named (so "It dropped to 20%" still refers to it). A clause about weekends, weekdays or a named day is checked against that habit's weekday figures; otherwise against its overall figures (completion counts, rate, target, streaks). "Weekends" means the Sat+Sun totals, not either day alone.
+- **Every number is checked in context.** The habit is the one named in the clause, or the last one named (so "It dropped to 20%" still refers to it). A clause about weekends, weekdays or a named day is checked against that habit's weekday figures, and any other clause against its overall figures (completion counts, rate, target, streaks). "Weekends" means the Sat+Sun totals, not either day alone.
 - **Current vs longest streak.** A number right after "current streak" must be the current streak.
-- **Rates.** 66.7%, 67% and 0.667 all match a rate of 0.667 (half a point of rounding); a whole number matches a count exactly.
+- **Rates.** 66.7%, 67% and 0.667 all match a rate of 0.667 (half a point of rounding). A whole number matches a count exactly.
 - **Best/worst claims, name by name.** Every habit or day named in a superlative claim must be at the top (bottom) of the computed ranking in that context, ties allowed, and each extra name is flagged: "Morning walk and Read 20 pages are your best habits" flags Read 20 pages if it isn't tied; "lowest on Saturdays and Sundays" is checked against that habit's by-day rates; "the longest current streak" against the streaks. A clause after "while" or "but" is a separate claim; "which", "both", "these" and "them" are followed back to the names they refer to; "second lowest" is not a top claim.
 - **Numbers for "both" habits** must hold for each of them.
 - Window-level numbers (window length, entry count, habit count) are allowed anywhere. Dates, list numbering, digits inside habit names ("Read 20 pages"), times of day and durations are not treated as claims.
@@ -108,13 +108,13 @@ Checking only that "every number in the answer appears somewhere in the summary"
 - Invented habit names, and anything in the 7-day plan (its day numbers and dates aren't statistics).
 - Ambiguous wording that the rules can't pin down — "maintained a streak of 28 days" with no "current" or "longest" is accepted if 28 is either.
 
-The checker flags; it doesn't rewrite or block the answer. It is rule-based, so it can also flag a correct sentence whose wording it misreads — the warning names the number, the habit and the context it checked, so you can see why.
+The checker flags. It doesn't rewrite or block the answer. It is rule-based, so it can also flag a correct sentence whose wording it misreads. The warning names the number, the habit and the context it checked, so you can see why.
 
 ### A live run
 
 [`scripts/live_check.py`](scripts/live_check.py) seeds the fixed sample log, asks the coach four questions (including the UI's own placeholder, "Which habit am I worst at on weekends?") and requests a weekly review, then runs the checker on each answer. One run with **qwen2.5:7b-instruct via Ollama**, 2026-09-26, is committed as [`examples/live_check_qwen2.5-7b-instruct.txt`](examples/live_check_qwen2.5-7b-instruct.txt). In that run the coach named Deep work block as worst at weekends (0.0, correct per the summary's rankings), declined the meditation and feelings questions, and the checker flagged nothing. The review's "maintained a streak of 28 consecutive days" (28 is the longest, the current streak is 1) was not flagged: it is the ambiguous-wording case listed above.
 
-This is one run of one model on one log, a spot check; the measured error rate is in the next section. Earlier runs while building this surfaced three kinds of error that are now unit tests: a wrong "worst at weekends" with every number correct, a longest streak reported as the current one, and a single day's rate quoted as the weekend rate.
+This is one run of one model on one log, a spot check. The measured error rate is in the next section. Earlier runs while building this surfaced three kinds of error that are now unit tests: a wrong "worst at weekends" with every number correct, a longest streak reported as the current one, and a single day's rate quoted as the weekend rate.
 
 ---
 
@@ -143,7 +143,7 @@ This is one run of one model on one log, a spot check; the measured error rate i
 | Full ranking / biggest drop | — | — | 2 / 12 |
 | Unanswerable, declined | 24 / 24 | 24 / 24 | 3 / 15 |
 
-**What this says.** On the dev set the fixes moved accuracy from 77.8% to 88.2%. On new questions and new logs the coach answers 50.4%, and that is the honest number. Reading a figure out of the summary holds up (35 of 39 held-out figure, streak and weekday/weekend answers are right). Comparisons still fail: held-out best/worst 4/30 — including the dev set's own "worst overall" worded as "least consistently" — second-best, rankings (the second place is often wrong) and the biggest-drop question. 18 of the 52 wrong held-out answers still name the right habit or day first. The held-out set also shows a failure the dev set never did: 12 of the 15 unanswerable questions were answered (a habit never logged in March, pages read per day, a forecast of next month), against 24/24 declined on the dev set.
+**What this says.** On the dev set the fixes moved accuracy from 77.8% to 88.2%. On new questions and new logs the coach answers 50.4%, and that is the number to quote. Reading a figure out of the summary holds up (35 of 39 held-out figure, streak and weekday/weekend answers are right). Comparisons still fail: held-out best/worst 4/30 (including the dev set's own "worst overall" worded as "least consistently"), second-best, rankings (the second place is often wrong) and the biggest-drop question. 18 of the 52 wrong held-out answers still name the right habit or day first. The held-out set also shows a failure the dev set never did: 12 of the 15 unanswerable questions were answered (a habit never logged in March, pages read per day, a forecast of next month), against 24/24 declined on the dev set.
 
 **What the validator catches** (run on each answer's explanation; Wilson 95% intervals):
 
@@ -183,10 +183,10 @@ Raw answers with their scores, in [`eval/results/`](eval/results/): `qwen2.5-7b-
 | | |
 |---|---|
 | 📝 **Log** | Mark habits done or missed, any date. Re-logging a day overwrites rather than duplicating. |
-| 📊 **Progress** | Completion rates against your weekly target, current and longest streaks, the share of each weekday done per habit. |
+| 📊 **Progress** | Completion rates against your weekly target, your current and longest streaks, the share of each weekday done per habit. |
 | 🧠 **Weekly review** | What's working, what's slipping, one pattern you probably haven't spotted, one thing to change. Under 250 words, no motivational filler. Checked by the validator. |
 | 📅 **7-day plan** | A day-by-day plan sized to your actual completion rates — a habit at 20% doesn't get a daily commitment. Weak weekdays get the lightest version. |
-| 💬 **Coach** | Ask about your history. The model is told to decline what the summary doesn't cover; each answer is checked. |
+| 💬 **Coach** | Ask about your history. The model is told to decline what the summary doesn't cover, and each answer is checked. |
 
 The Weekly review tab has a **"What the model actually receives"** expander showing the exact JSON. If the coach says something surprising, you can check whether the data supports it.
 
@@ -228,7 +228,7 @@ LLM_PROVIDER=ollama   OLLAMA_MODEL=llama3.1                 # fully local, nothi
 LLM_PROVIDER=openai   OPENAI_MODEL=gpt-4o-mini              # for comparison
 ```
 
-One env var, no code change; every model id is an env var too. `llama-3.3-70b-versatile` is listed as a production model on [Groq's models page](https://console.groq.com/docs/models) and is not on its [deprecations page](https://console.groq.com/docs/deprecations) (both checked 2026-09-26). Ollama is the one to use if you'd rather your habit log never touch a third-party API — which is a reasonable thing to want from this particular category of data. Any chat model Ollama serves works; the live run above used `qwen2.5:7b-instruct`.
+One env var, no code change. Every model id is an env var too. `llama-3.3-70b-versatile` is listed as a production model on [Groq's models page](https://console.groq.com/docs/models) and is not on its [deprecations page](https://console.groq.com/docs/deprecations) (both checked 2026-09-26). Use Ollama if you'd rather your habit log never touch a third-party API. Any chat model Ollama serves works; the live run above used `qwen2.5:7b-instruct`.
 
 ### Tests
 
@@ -237,7 +237,7 @@ pip install -r requirements-dev.txt   # the runtime pins plus pytest (or: uv syn
 pytest -q                             # 153 passing, no model or network needed
 ```
 
-- `test_analytics.py` — the statistics: streak edge cases (an unlogged today doesn't break a streak, a miss logged today does, a gap does), start-date-aware completion (3/3 on a new habit is 100%; two completions in thirty days is not), per-habit weekday totals, rankings.
+- `test_analytics.py` — the statistics: streak edge cases (an unlogged today doesn't break a streak, a miss logged today does, a gap does), start-date-aware completion (3/3 on a new habit is 100%, two completions in thirty days is not), per-habit weekday totals, rankings.
 - `test_validate.py` — the claim checker: what passes, what is flagged, including the errors seen from a live model.
 - `test_db_and_seed.py` — archived habits leave the summary, `created_on` reaches the denominator, the seed is deterministic, and the README's sample block below is exactly what `seed.py` prints.
 - `test_eval_scoring.py` — the evaluation: expected answers cross-checked against the analytics functions, the answer parser, every scoring rule, the interval code, and that re-scoring the committed responses reproduces the committed summary.
@@ -310,23 +310,23 @@ The weekend collapse in Read 20 pages and Deep work block is the kind of thing t
 
 ## Limitations
 
-- **The claim checker is rule-based.** It covers numbers and best/worst claims in context; the list of what it doesn't cover is above. It flags rather than blocks. On the held-out set it flagged 21 of 52 wrong answers and 12 of 62 correct ones.
+- **The claim checker is rule-based.** It covers numbers and best/worst claims in context. The list of what it doesn't cover is above. It flags rather than blocks. On the held-out set it flagged 21 of 52 wrong answers and 12 of 62 correct ones.
 - **The coach is weak at comparisons.** On the held-out set, best/worst habit answers were right 4 times in 30 and rankings 2 in 12, against 35 of 39 for single figures, streaks and weekday/weekend.
 - **It answers some questions the log can't.** 12 of 15 held-out unanswerable questions got an answer.
 - **The prompt is about 3,400 tokens** with the seeded log. Ollama's default 4,096-token context leaves little room for chat history.
 - **Streaks are daily.** A 5×/week habit's streak resets at a skipped weekend even when the weekly target is met.
 - **A habit with no entries in the window disappears** rather than being reported as dropped (Meditate in the sample data) — arguably the more useful signal.
-- **30-day window is fixed** in the UI. The analytics functions take any window; the UI doesn't expose it yet.
+- **30-day window is fixed** in the UI. The analytics functions take any window, but the UI doesn't expose it yet.
 - **Single user, local file.** No accounts, no sync. `data/` is gitignored.
 - **The coach has no memory across sessions.** Chat history lives in Streamlit session state and resets on reload.
-- **No reminders or notifications.** It tracks; it doesn't nag.
+- **No reminders or notifications.** It tracks, it doesn't nag.
 - **Not a clinical tool.** The prompts explicitly refuse medical and psychiatric territory, but this is a habit log and nothing more.
 
 ## Next
 
 1. **Comparisons that generalise**: answer "which is best/worst/second/rank" questions from the computed rankings in code (route the question, let the model phrase the answer) rather than by prompt, since the prompt rule helped on the dev wording and not on new wording (held-out best/worst 4/30).
 2. **Refusals on held-out wording**: 12 of 15 unanswerable held-out questions were answered. Add a check for claims about periods, units or habits the summary doesn't hold.
-3. **A fresh held-out set** written after these results, the held-out set run on the code before the fixes, and the default Groq Llama 3.3 70B (not yet run); checker coverage for numbers written as words and a compacter summary format for small contexts.
+3. **A fresh held-out set** written after these results, the held-out set run on the code before the fixes, and the default Groq Llama 3.3 70B (not yet run). Also checker coverage for numbers written as words and a compacter summary format for small contexts.
 4. **Weekly-target streaks** for habits below 7×/week, and reporting abandoned habits as dropped.
 5. **Configurable window** and habit-level history charts.
 6. **Correlation between habits** — does the walk happening predict the deep-work block happening? The data supports asking; the analytics don't compute it yet.
