@@ -26,6 +26,18 @@ def test_archived_habits_are_left_out_of_entries(tmp_path):
     assert set(analytics.build_summary(db.recent(30, AS_OF, path), 30, AS_OF)["completion"]) == {"Walk"}
 
 
+def test_adding_an_archived_name_brings_the_habit_back(tmp_path):
+    path = tmp_path / "h.db"
+    db.init(path)
+    habit = db.add_habit("Read", db_path=path)
+    db.log(habit, AS_OF, True, db_path=path)
+    db.archive_habit(habit, db_path=path)
+
+    assert db.add_habit("Read", db_path=path) == habit
+    assert [h["name"] for h in db.list_habits(db_path=path)] == ["Read"]
+    assert len(db.entries_between(AS_OF, AS_OF, db_path=path)) == 1
+
+
 def test_created_on_reaches_the_denominator(tmp_path):
     path = tmp_path / "h.db"
     db.init(path)

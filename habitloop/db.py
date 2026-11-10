@@ -66,15 +66,14 @@ def init(db_path: Path | str | None = None) -> None:
 
 def add_habit(name: str, category: str = "general", target_per_week: int = 7,
               created_on: date | None = None, db_path: Path | str | None = None) -> int:
+    """Add a habit. Adding the name of an archived habit brings it back, history kept."""
     with connect(db_path) as conn:
-        cursor = conn.execute(
-            "INSERT OR IGNORE INTO habits (name, category, target_per_week, created_on) "
-            "VALUES (?, ?, ?, ?)",
+        conn.execute(
+            "INSERT INTO habits (name, category, target_per_week, created_on) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET archived = 0",
             (name.strip(), category, target_per_week,
              (created_on or date.today()).isoformat()),
         )
-        if cursor.lastrowid:
-            return cursor.lastrowid
         row = conn.execute("SELECT id FROM habits WHERE name = ?", (name.strip(),)).fetchone()
         return row["id"]
 
